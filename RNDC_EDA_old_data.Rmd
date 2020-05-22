@@ -1,0 +1,245 @@
+CAPSTONE A EDA
+RNDC data
+
+```{r}
+library(dplyr)
+library(tswge)
+library(ggplot2)
+library(changepoint)
+```
+
+```{r}
+proto1 = read.csv("D:/SMU/DS 6120 Capstone A/Bivin CC 2013-14.csv")
+proto2 = read.csv("D:/SMU/DS 6120 Capstone A/Bivin CC 2015-16.csv")
+proto3 = read.csv("D:/SMU/DS 6120 Capstone A/Bivin CC 2017-19.csv")
+```
+
+```{r}
+r = vector()
+for(i in seq(1, length(names(proto1)), 1))
+{
+  r[i] = (paste('row ', i, names(proto1)[i] == names(proto2)[i] && names(proto1)[i]== names(proto3)[i]))
+}
+#r
+```
+all the rows match up, can merge(rbind)
+```{r}
+data0 <- rbind(rbind(as.data.frame(proto1), as.data.frame(proto2)), as.data.frame(proto3))
+names(data0)[1] <- 'Year'
+
+```
+X is customer name
+X1 is vendor ID?
+X2 is product ID?
+X3 is product type ID?
+X9L.Cases is??? 
+Dollar.Sales.per.Case vs Dollar.Sales.per.9L.Case??? 
+
+
+#early.vis
+```{r}
+v1 = (as.data.frame(table(data0$Vendor)))
+v1 <- v1[order(-v1$Freq), ] #descending order
+ggplot() +
+  geom_bar(data = v1[1:20,], aes(x = reorder(Var1, Freq), y = Freq, fill = Var1), stat = 'identity', width = .8) +
+  geom_text(data = v1[1:20,], aes(label = Freq, x = Var1, y = Freq ), hjust = -.1, size = 3.5)+
+  coord_flip() + #horizontal bar
+  ggtitle('Orders by Vendor (top 20)') +
+  labs(x = 'Vendor Name', y = 'Number of Orders')+
+  theme(axis.text.y =element_text(size = 10))+
+  theme(legend.position = 'none')
+#ggsave('v1.png', width = 30, height = 15)
+```
+
+```{r}
+#v1.2
+v1.2 = as.data.frame(table(data0$X)) #customer names
+names(v1.2) = c('Customer', 'n_orders')
+
+g2 <- ggplot() +
+  geom_bar(data = v1.2, aes(x = Customer, y = n_orders, fill = n_orders), stat = 'identity')+
+  coord_flip() +
+  ggtitle('Orders by Customer Name') + labs(x = 'Orders', y = 'Customer Name') +
+  theme(axis.title.y = element_text(hjust = -10)) +
+  theme(legend.position = 'none')+
+  #scale_color_gradientn(colors = terrain.colors(10)) #note, gradient + n is needed for brewer specification, not a typo! #this specific option, when paired with aes(fill and color specified, only seems to change the border of the bar)
+  scale_fill_gradient(low = 'palegreen4', high  = 'coral1', na.value = NA)
+#http://sape.inf.usi.ch/quick-reference/ggplot2/colour for color references
+show(g2)
+
+#fit to 3d geo data? 
+```
+```{r}
+#make a dict-like  structure to match brand name to category, product type, proof
+dict1 = data0[, c(10, 11, 12, 7, 22, 25, 26)] #when we figure out which one is $/case, add that here too
+dict1 <- dict1[!duplicated(dict1), ] #remove duplicated rows to get chart thing
+dict2 <- dict1[order(dict1$Category), ] #now have list of unique brand that corresponds to category and alch proof
+```
+
+```{r}
+#brand by quantity/brand by price
+v1.3 = as.data.frame(table(data0$Brand))
+names(v1.3) <- c('Brand', 'Freq')
+#add category and proof to each entry
+#subset(dict1, Brand=='ABSOLUT')
+  #hmm nevermind there are multiple categories and alchol proofs per brand, wont' work to subset match and   augment base brand/freq table
+  #but maybe for product? 
+v1.4 = as.data.frame(table(data0$Product))
+names(v1.4) <- c("Product", "Frequency")
+```
+
+```{r}
+#test pairing/adding bit
+#x <- as.character(v1.4[1, 1])
+#y <- which(dict2$Product == x) #should return row number that matches the product name
+#dict2[y, ] #ok, now can pull other attributes, add to vector, and add to dataframe next to product and frequency. let's do category first
+x = 0
+y = 0
+c = 0
+cat = 0
+cat_holder = vector()
+n = 1:length(v1.4$Product)
+#n = 1:10 #for testing
+
+for(i in n){
+  x <- as.character(v1.4[i, 1]) #store product name as char
+  #print(x)
+  y <- which(dict2$Product == x) #look in dictionary for product name and return row number
+  #print(y)
+  cat <- as.character(dict2[y, 5]) #category is 5th column in dict2
+  #print(cat)
+  cat_holder <- append(cat_holder, cat)
+  #print(cat_holder)
+  c = c+1
+}
+#HMM THERE ARE 5 EXTRA ROWS WHERE ARE THEY COMING FROM
+#now add cat_holder to v1.4
+#v1.4$Category <- cat_holder
+```
+
+```{r}
+#condensed code
+cat_holder = vector()
+c = 0
+n = 1:length(v1.4$Product)
+for(i in n){
+  cat_holder <- append(cat_holder, as.character(dict2[which(dict2$Product == as.character(v1.4[i, 1])), 5]))
+  c = c+1
+}
+#STILL 5 EXTRA ROWS
+```
+
+
+```{r}
+v1.3 = as.data.frame(table(data0$Brand))
+names(v1.3) <- c('Brand', 'Freq')
+v1.3.2 <- v1.3[order(-v1.3$Freq), ] #descending order
+
+g3 <- ggplot() +
+  geom_bar(data = v1.3.2[1:30, ], aes(x = reorder(Brand, Freq), y = Freq, fill = Freq), stat = 'identity')+
+  coord_flip() +
+  ggtitle('Orders by Top 30 Brand Names') + labs(x = 'Brand', y = 'Order Quantity') +
+  theme(axis.title.y = element_text(hjust = -10)) +
+  theme(legend.position = 'none')+
+  scale_fill_gradient(low = 'lightslateblue', high  = 'goldenrod4', na.value = NA)
+
+show(g3)
+
+g3.alt <- ggplot() +
+  geom_bar(data = v1.3.2[1:30, ], aes(x = Brand, y = Freq, fill = Freq), stat = 'identity')+
+  coord_flip() +
+  ggtitle('Orders by Top 30 Brand Names') + labs(x = 'Brand', y = 'Order Quantity') +
+  theme(axis.title.y = element_text(hjust = -10)) +
+  #theme(legend.position = 'none')+
+  scale_fill_gradient(low = 'lightslateblue', high  = 'goldenrod4', na.value = NA)
+
+show(g3.alt)
+
+#can A, order stuff and not really need color to show intensity, or B, leave unordered for top20 and make use of color scaling, but look a litte messier
+
+```
+
+
+```{r}
+#function to convert "Apr-2013" to a real date time format
+dparse <- function(x)
+{
+  if(substr(x, 1, 3) == "Jan"){y = paste('28-','01', substr(x, 4, 8), sep = '')}
+  else if(substr(x, 1, 3) == "Feb"){y = paste('28-','02', substr(x, 4, 8), sep = '')}
+  else if(substr(x, 1, 3) == "Mar"){y = paste('28-','03', substr(x, 4, 8), sep = '')}
+  else if(substr(x, 1, 3) == "Apr"){y = paste('28-','04', substr(x, 4, 8), sep = '')}
+  else if(substr(x, 1, 3) == "May"){y = paste('28-','05', substr(x, 4, 8), sep = '')}
+  else if(substr(x, 1, 3) == "Jun"){y = paste('28-','06', substr(x, 4, 8), sep = '')}
+  else if(substr(x, 1, 3) == "Jul"){y = paste('28-','07', substr(x, 4, 8), sep = '')}
+  else if(substr(x, 1, 3) == "Aug"){y = paste('28-','08', substr(x, 4, 8), sep = '')}
+  else if(substr(x, 1, 3) == "Sep"){y = paste('28-','09', substr(x, 4, 8), sep = '')}
+  else if(substr(x, 1, 3) == "Oct"){y = paste('28-','10', substr(x, 4, 8), sep = '')}
+  else if(substr(x, 1, 3) == "Nov"){y = paste('28-','11', substr(x, 4, 8), sep = '')}
+  else if(substr(x, 1, 3) == "Dec"){y = paste('28-','12', substr(x, 4, 8), sep = '')}
+  else {y = 'not recognized'}
+  
+  return(y)
+}
+
+
+```
+
+```{r}
+v2 = as.data.frame(table(data0$Month))
+names(v2) <- c('date', 'count')
+cleandates = vector()
+
+for(i in seq(1, length(v2$date), 1)){
+  cleandates[i] <- dparse(v2$date[i])
+}
+
+v2$date = as.Date(cleandates, '%d-%m-%Y')
+
+ggplot()+
+  geom_line(data = v2, aes(x = date, y = count))+
+  labs(title = 'Orders over Time (all customers)', xlab = 'Date', ylab = 'Orders')
+  
+```
+
+```{r}
+#changepoints analysis
+
+par(mfrow = c(2, 1))
+v3 <- as.ts(v2$count)
+
+v3.pelt <- cpt.meanvar(v3, test.stat = 'Poisson', method = "PELT")
+plot(v3.pelt, main = 'PELT changes in variance')
+cpts.ts(v3.pelt)
+
+v3.bs <- cpt.meanvar(v3, test.stat = 'Poisson', method = 'BinSeg')
+plot(v3.bs, cpt.width = 3, main = 'BinSeg changes in Mean Variance')
+cpts.ts(v3.bs)
+
+plotts.sample.wge(v3)
+```
+
+```{r}
+v3.bs <- cpt.meanvar(v3, test.stat = 'Poisson', method = 'BinSeg')
+plot(v3.bs, cpt.width = 3)
+cpts.ts(v3.bs)
+```
+
+##note for prediction later 
+find a way to represent a time series as sparse matrix, feed into random forest with santerre code, ???, profit? would be a good test of other TS methods
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
