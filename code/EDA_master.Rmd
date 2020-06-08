@@ -1,5 +1,5 @@
 ---
-title: "Capstone EDA"
+title: "Capstone"
 author: "Jenna Ford, Christian Nava, Jonathan Tan"
 date: "5/21/2020"
 output:
@@ -19,6 +19,9 @@ library(GGally)
 library(astsa)
 library(nnfor)
 library(dplyr)
+library(ggplot2)
+library(changepoint)
+library(date)
 knitr::opts_chunk$set(echo = TRUE,
                prompt = FALSE,
                tidy = TRUE,
@@ -45,6 +48,11 @@ dim(df_17_19)
 dim(df_15_16)
 dim(df_13_14)
 
+#format date column
+df_17_19$date = date.mmddyy(mdy.date(match(substr(df_17_19$Month, 1, 3),month.abb),01,df_17_19$Year),sep="/")
+df_15_16$date = date.mmddyy(mdy.date(match(substr(df_15_16$Month, 4, 6),month.abb),01,df_15_16$Year),sep="/")
+df_13_14$date = date.mmddyy(mdy.date(match(substr(df_13_14$Month, 1, 3),month.abb),01,df_13_14$Year),sep="/")
+
 df <- rbind(df_17_19,df_15_16,df_13_14)
 
 dim(df)
@@ -70,11 +78,20 @@ table_a = check.for.missing.data(data=df)
 formattable(table_a, align = c("l", rep("r", NCOL(table_a) - 1)))
 ```
 
-## Drop `Metrics` Variable
+## Keep Only Active Accounts
+***
+
+```{r filter}
+invisible(df %>% filter(Account_Status != "Closed"))
+```
+
+## Drop Variables
 ***
 
 ```{r drop}
-drops <- c("Metrics")
+drops <- c("Metrics","Year","Month","House","Account_Status","Beverage_Type","Fiscal_Year","Premise","Customer_Street_Address","Customer_City",
+           "Customer_Zip_Code","Longitude_Customer","Latitude_Customer","Customer","Vendor","Brand_ID","Brand","Size","Product_ID","Chain","Category",
+           "Product_Type_ID","Qty_Per_Case","Alcohol_Proof","X9L_Cases","Dollar_Sales_Per_Case","Dollar_Sales_Per_9L_Case")
 df = df[ , !(names(df) %in% drops)]
 ```
 
@@ -82,6 +99,7 @@ df = df[ , !(names(df) %in% drops)]
 ***
 
 ```{r formatting}
+df$Dollar_Sales = as.numeric(gsub('[$,]', '', df$Dollar_Sales))
 str(df)
 ```
 
@@ -89,6 +107,148 @@ str(df)
 ***
 
 ```{r products}
-df %>% group_by(Product_Type) %>% tally(sort=TRUE)
-df %>% group_by(Product_Type, Product) %>% tally(sort=TRUE)
+product_type_group = df %>% group_by(Product_Type) %>% tally(sort=TRUE)
+dim(product_type_group)
+formattable(head(product_type_group), align = c("l", rep("r", NCOL(table_a) - 1)))
+
+product_group = df %>% group_by(Product) %>% tally(sort=TRUE)
+dim(product_group)
+formattable(head(product_group), align = c("l", rep("r", NCOL(table_a) - 1)))
+
+customer_group = df %>% group_by(Customer_ID) %>% tally(sort=TRUE)
+dim(customer_group)
+formattable(head(customer_group), align = c("l", rep("r", NCOL(table_a) - 1)))
+
+product_type_product_group = df %>% group_by(Product_Type, Product) %>% tally(sort=TRUE)
+dim(product_type_product_group)
+formattable(head(product_type_product_group), align = c("l", rep("r", NCOL(table_a) - 1)))
+
+all_group = df %>% group_by(Product_Type, Product, Customer_ID) %>% tally(sort=TRUE)
+dim(all_group)
+formattable(head(all_group), align = c("l", rep("r", NCOL(table_a) - 1)))
+```
+
+## Put Combinations for Forecasting into a Dataframe and Choose 10 Sample Combinations
+***
+
+```{r combinations}
+# Create file with all possible combinations
+combinations0 = as.data.frame(df %>% group_by(Product_Type, Product, Customer_ID) %>% tally(sort=TRUE))
+combinations = combinations0 %>% filter(n >= 42)
+
+# Sample combinations
+set.seed(123)
+sample_combinations = sample_n(combinations,10)
+drops <- c("n")
+sample_combinations = sample_combinations[ , !(names(sample_combinations) %in% drops)]
+formattable(sample_combinations, align = c("l", rep("r", NCOL(table_a) - 1)))
+```
+
+## Time Series EDA
+***
+
+```{r eda1}
+# Find data from file for first combination
+all_dates = data.frame(date=c("1/1/2013","2/1/2013","3/1/2013","4/1/2013","5/1/2013","6/1/2013","7/1/2013","8/1/2013","9/1/2013","10/1/2013","11/1/2013","12/1/2013",
+                              "1/1/2014","2/1/2014","3/1/2014","4/1/2014","5/1/2014","6/1/2014","7/1/2014","8/1/2014","9/1/2014","10/1/2014","11/1/2014","12/1/2014",
+                              "1/1/2015","2/1/2015","3/1/2015","4/1/2015","5/1/2015","6/1/2015","7/1/2015","8/1/2015","9/1/2015","10/1/2015","11/1/2015","12/1/2015",
+                              "1/1/2016","2/1/2016","3/1/2016","4/1/2016","5/1/2016","6/1/2016","7/1/2016","8/1/2016","9/1/2016","10/1/2016","11/1/2016","12/1/2016",
+                              "1/1/2017","2/1/2017","3/1/2017","4/1/2017","5/1/2017","6/1/2017","7/1/2017","8/1/2017","9/1/2017","10/1/2017","11/1/2017","12/1/2017",
+                              "1/1/2018","2/1/2018","3/1/2018","4/1/2018","5/1/2018","6/1/2018","7/1/2018","8/1/2018","9/1/2018","10/1/2018","11/1/2018","12/1/2018",
+                              "1/1/2019","2/1/2019","3/1/2019","4/1/2019","5/1/2019","6/1/2019","7/1/2019","8/1/2019","9/1/2019","10/1/2019","11/1/2019","12/1/2019"))
+
+date_combinations = merge(all_dates,sample_combinations,all=TRUE)
+str(date_combinations)
+
+# Join date/sample combinations with primary dataset to review records
+temp = left_join(date_combinations,df)
+
+# Replace missing values for STD_Cases and Dollar_Sales with zeros since no cases were sold those months
+temp[is.na(temp)] <- 0
+str(temp)
+
+```
+
+```{r sample1, eval=FALSE}
+#only one sample combination
+sample_combinations1 = sample_combinations[1,]
+temp1 = inner_join(temp,sample_combinations1)
+product = sample_combinations1$Product
+customer = sample_combinations1$Customer_ID
+
+plot.ts(temp1$STD_Cases, 
+        main=c(paste("Standard Case Sales of ", product), 
+               paste("for ",customer)),
+        xlab="Days",
+        ylab="Standard Cases")
+
+par(mfrow = c(2,2))
+invisible(acf(temp1$STD_Cases, main="ACF"))
+invisible(parzen.wge(temp1$STD_Cases))
+
+invisible(acf(temp1$STD_Cases[0:length(temp1$date)/2], main="ACF for 1st Half of Series"))
+invisible(acf(temp1$STD_Cases[(1+length(temp1$date)/2):length(temp1$date)], main="ACF for 2nd Half of Series"))
+
+aic = aic5.wge(temp1$STD_Cases,type="aic")
+aic
+
+#for (row in 1:nrow(aic)) {
+for (row in 1:1) {
+  if(aic$`   p` == 0 & aic$`   q` == 0){
+    print("One of the top 5 models using BIC was an ARMA(0,0), indicating this series may be white noise.")
+  }
+}
+```
+
+```{r loop}
+# loop through sample combinations
+for(i in 1:10) {
+  sample_combinations1 = sample_combinations[i,]
+  temp1 = inner_join(temp,sample_combinations1)
+  product = sample_combinations1$Product
+  customer = sample_combinations1$Customer_ID
+  
+  par(mfrow=c(1,1))
+  plot.ts(temp1$STD_Cases, 
+          main=c(paste("Standard Case Sales of ", product), 
+                 paste("for ",customer)),
+          xlab="Days",
+          ylab="Standard Cases")
+  
+  par(mfrow = c(2,2))
+  invisible(acf(temp1$STD_Cases, main="ACF"))
+  invisible(parzen.wge(temp1$STD_Cases))
+
+  invisible(acf(temp1$STD_Cases[0:length(temp1$date)/2], main="ACF for 1st Half of Series"))
+  invisible(acf(temp1$STD_Cases[(1+length(temp1$date)/2):length(temp1$date)], main="ACF for 2nd Half of Series"))
+
+  sink("file")
+  ljung_24 = ljung.wge(temp1$STD_Cases,K=24)
+  sink()
+  cat("The Ljung-Box test with K=24 has a chi-square value of",ljung_24$chi.square,".")
+  
+  sink("file")
+  ljung_48 = ljung.wge(temp1$STD_Cases,K=48)
+  sink()
+  cat("The Ljung-Box test with K=48 has a chi-square value of",ljung_48$chi.square,".")
+  
+  if (ljung_24$chi.square < .05 & ljung_48$chi.square < .05){
+    print("Ljung-Box test results: At a significance level of 0.05, we reject the null hypothesis that this dataset is white noise.")
+  } else if (ljung_24$chi.square > .05 & ljung_48$chi.square < .05){
+    print("Ljung-Box test results: At a significance level of 0.05, the test is inconclusive.")
+  } else if (ljung_24$chi.square < .05 & ljung_48$chi.square > .05){
+    print("Ljung-Box test results: At a significance level of 0.05, the test is inconclusive.")
+  } else {
+    print("Ljung-Box test results: At a significance level of 0.05, we fail to reject the null hypothesis that this dataset is white noise.")
+  }
+  
+  aic = invisible(aic5.wge(temp1$STD_Cases,type="bic"))
+  
+  #for (row in 1:nrow(aic)) {
+  for (row in 1:1) {
+    if(aic$`   p` == 0 & aic$`   q` == 0){
+      print("One of the top 5 models using BIC was an ARMA(0,0), indicating this series may be white noise.")
+    }
+}
+}
 ```
