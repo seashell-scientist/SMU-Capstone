@@ -39,10 +39,11 @@ May 21, 2020
 
 ## Read in Datasets and Combine
 ***
-```{r data}
-df_17_19 = read.csv("C:/Users/b007224/Documents/masters_in_data_science/capstone/data/Bivin CC 2017-19_updated_headings.csv")
-df_15_16 = read.csv("C:/Users/b007224/Documents/masters_in_data_science/capstone/data/Bivin CC 2015-16_updated_headings.csv")
-df_13_14 = read.csv("C:/Users/b007224/Documents/masters_in_data_science/capstone/data/Bivin CC 2013-14_updated_headings.csv")
+```{r data} 
+#note ask for updated headings csv changes to stay synced
+df_17_19 = read.csv("D:/SMU/DS 6120 Capstone A/Bivin CC 2017-19.csv")
+df_15_16 = read.csv("D:/SMU/DS 6120 Capstone A/Bivin CC 2015-16.csv")
+df_13_14 = read.csv("D:/SMU/DS 6120 Capstone A/Bivin CC 2013-14.csv")
 #df_17_19 = read.csv("C:/Users/b007224/Documents/masters_in_data_science/capstone/data/Bivin CC 2017-19_updated_headings.csv")
 #df_15_16 = read.csv("C:/Users/b007224/Documents/masters_in_data_science/capstone/data/Bivin CC 2015-16_updated_headings.csv")
 #df_13_14 = read.csv("C:/Users/b007224/Documents/masters_in_data_science/capstone/data/Bivin CC 2013-14_updated_headings.csv")
