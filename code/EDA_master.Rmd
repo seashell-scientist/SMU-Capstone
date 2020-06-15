@@ -169,7 +169,7 @@ str(temp)
 
 ```
 
-```{r sample1}
+```{r sample1, eval=FALSE}
 #only one sample combination
 sample_combinations1 = sample_combinations[1,]
 temp1 = inner_join(temp,sample_combinations1)
