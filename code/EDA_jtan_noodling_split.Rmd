@@ -9,7 +9,7 @@ output:
 
 ```{r setup, include=FALSE}
 library(rmdformats)
-library(tidyverse)  # data manipulaiton
+library(tidyverse)  # data manipulation
 library(data.table)
 library(tswge)  # Time series package
 library(tseries)  # for Dickey-Fuller test 
@@ -41,9 +41,9 @@ May 21, 2020
 ***
 ```{r data} 
 #note ask for updated headings csv changes to stay synced
-df_17_19 = read.csv("D:/SMU/DS 6120 Capstone A/Bivin CC 2017-19.csv")
-df_15_16 = read.csv("D:/SMU/DS 6120 Capstone A/Bivin CC 2015-16.csv")
-df_13_14 = read.csv("D:/SMU/DS 6120 Capstone A/Bivin CC 2013-14.csv")
+df_17_19 = read.csv("D:/SMU/DS 6120 Capstone A/Bivin CC 2017-19_updated_headings.csv")
+df_15_16 = read.csv("D:/SMU/DS 6120 Capstone A/Bivin CC 2015-16_updated_headings.csv")
+df_13_14 = read.csv("D:/SMU/DS 6120 Capstone A/Bivin CC 2013-14_updated_headings.csv")
 #df_17_19 = read.csv("C:/Users/b007224/Documents/masters_in_data_science/capstone/data/Bivin CC 2017-19_updated_headings.csv")
 #df_15_16 = read.csv("C:/Users/b007224/Documents/masters_in_data_science/capstone/data/Bivin CC 2015-16_updated_headings.csv")
 #df_13_14 = read.csv("C:/Users/b007224/Documents/masters_in_data_science/capstone/data/Bivin CC 2013-14_updated_headings.csv")
@@ -256,3 +256,386 @@ for(i in 1:10) {
 }
 }
 ```
+
+```{r}
+# Core Tidyverse
+library(tidyverse)
+library(glue)
+library(forcats)
+
+# Time Series
+library(timetk)
+library(tidyquant)
+library(tibbletime)
+
+# Visualization
+library(cowplot)
+
+# Preprocessing
+library(recipes)
+
+# Sampling / Accuracy
+library(rsample)
+library(yardstick) 
+
+# Modeling
+library(keras)
+library(tfruns)
+```
+
+format sample combination ts into tripartate LSTM format
+first need ts form, set index and value
+cross validation for time series: need to keep the time dependency, can't just shuffle things without losing meaning. create multiple synthetic "futures"? 
+```{r}
+ex1 <- data.frame(date = strptime((temp1$date), "%d/%m/%Y"), cases = temp1$STD_Cases)
+ex2 <- tbl_time(ex1, date)
+
+rolling_origin_resamples <- rolling_origin(
+  ex2,
+  initial    = 18,
+  assess     = 6,
+  cumulative = FALSE, #means that the resmaples will be the same... size? 
+  skip       = 6
+)
+
+rolling_origin_resamples
+
+```
+
+backsample vizualization 
+```{r}
+# Plotting function for a single split
+plot_split <- function(split, expand_y_axis = TRUE, 
+                       alpha = 1, size = 1, base_size = 14) {
+    
+    # Manipulate data
+    train_tbl <- training(split) %>%
+        add_column(key = "training") 
+    
+    test_tbl  <- testing(split) %>%
+        add_column(key = "testing") 
+    
+    data_manipulated <- bind_rows(train_tbl, test_tbl) %>%
+        as_tbl_time(index = date) %>%
+        mutate(key = fct_relevel(key, "training", "testing"))
+        
+    # Collect attributes
+    train_time_summary <- train_tbl %>%
+        tk_index() %>%
+        tk_get_timeseries_summary()
+    
+    test_time_summary <- test_tbl %>%
+        tk_index() %>%
+        tk_get_timeseries_summary()
+    
+    # Visualize
+    g <- data_manipulated %>%
+        ggplot(aes(x = date, y = cases, color = key)) +
+        geom_line(size = size, alpha = alpha) +
+        theme_tq(base_size = base_size) +
+        scale_color_tq() +
+        labs(
+          title    = glue("Split: {split$id}"),
+          subtitle = glue("{train_time_summary$start} to ", 
+                          "{test_time_summary$end}"),
+            y = "", x = ""
+        ) +
+        theme(legend.position = "none") 
+    
+    if (expand_y_axis) {
+        
+        time_summary <- ex2 %>% 
+            tk_index() %>% 
+            tk_get_timeseries_summary()
+        
+        g <- g +
+            scale_x_date(limits = c(time_summary$start, 
+                                    time_summary$end))
+    }
+    
+    g
+}
+```
+shows a single split that has 100 years train, 50 test. if you plotted the second split, this entire "window" would move up by 22 years
+```{r}
+rolling_origin_resamples$splits[[1]] %>%
+    plot_split(expand_y_axis = FALSE) +
+    theme(legend.position = "bottom")
+```
+
+```{r}
+#diagnosis cell
+split <- rolling_origin_resamples$splits[[1]] 
+alpha = 1
+size = 1
+base_size = 14
+
+
+# Manipulate data
+    train_tbl <- training(split) %>%
+        add_column(key = "training") 
+    
+    test_tbl  <- testing(split) %>%
+        add_column(key = "testing") 
+    
+    data_manipulated <- bind_rows(train_tbl, test_tbl) %>%
+        as_tbl_time(index = date) %>%
+        mutate(key = fct_relevel(key, "training", "testing"))
+    
+     # Collect attributes
+    train_time_summary <- train_tbl %>%
+        tk_index() %>%
+        tk_get_timeseries_summary()
+    
+    test_time_summary <- test_tbl %>%
+        tk_index() %>%
+        tk_get_timeseries_summary()
+    
+    # Visualize
+    g <- data_manipulated %>%
+        ggplot(aes(x = date, y = cases, color = key)) +
+        geom_line(size = size, alpha = alpha) +
+        theme_tq(base_size = base_size) +
+        scale_color_tq() +
+        labs(
+          title    = glue("Split: {split$id}"),
+          subtitle = glue("{train_time_summary$start} to ", 
+                          "{test_time_summary$end}"),
+            y = "", x = ""
+        ) +
+        theme(legend.position = "none") 
+    g
+```
+
+plotting all subdivisions
+```{r}
+# Plotting function that scales to all splits 
+plot_sampling_plan <- function(sampling_tbl, expand_y_axis = FALSE, 
+                               ncol = 3, alpha = 1, size = 1, base_size = 14, 
+                               title = "Sampling Plan") {
+    
+    # Map plot_split() to sampling_tbl
+    sampling_tbl_with_plots <- sampling_tbl %>%
+        mutate(gg_plots = map(splits, plot_split, 
+                              expand_y_axis = expand_y_axis,
+                              alpha = alpha, base_size = base_size))
+    
+    # Make plots with cowplot
+    plot_list <- sampling_tbl_with_plots$gg_plots 
+    
+    p_temp <- plot_list[[1]] + theme(legend.position = "bottom")
+    legend <- get_legend(p_temp)
+    
+    p_body  <- plot_grid(plotlist = plot_list, ncol = ncol)
+    
+    p_title <- ggdraw() + 
+        draw_label(title, size = 14, fontface = "bold", 
+                   colour = palette_light()[[1]])
+    
+    g <- plot_grid(p_title, p_body, legend, ncol = 1, 
+                   rel_heights = c(0.05, 1, 0.05))
+    
+    g
+    
+}
+
+rolling_origin_resamples %>%
+    plot_sampling_plan(expand_y_axis = F, ncol = 3, alpha = 1, size = 1, base_size = 10, 
+                       title = "Backtesting Strategy: Rolling Origin Sampling Plan")
+```
+so we can see the 'slices' of the data are pretty unhelpful when looking at a mostly sparse time series
+
+looking at an individual slice to test lstm
+```{r}
+example_split    <- rolling_origin_resamples$splits[[6]]
+example_split_id <- rolling_origin_resamples$id[[6]]
+
+plot_split(example_split, expand_y_axis = FALSE, size = 0.5) + 
+  theme(legend.position = 'bottom') + ggtitle(glue("Split: {example_split_id}"))
+```
+
+data setup
+```{r}
+split_length <- length(analysis(example_split)$date) #number of total datapoints in the split
+split_point <- round(split_length*.6) #take the first 60% of the sample as train
+
+df_trn <- analysis(example_split)[1:split_point, , drop = FALSE] 
+df_val <- analysis(example_split)[(split_point + 1):split_length, , drop = FALSE] #take the rest data as validation/test
+df_tst <- assessment(example_split) #but this test data is... ??? 
+
+df <- bind_rows(
+  df_trn %>% add_column(key = "training"),
+  df_val %>% add_column(key = "validation"),
+  df_tst %>% add_column(key = "testing")
+) %>%
+  as_tbl_time(index = date)
+
+df
+```
+
+LSTM works best with centered and scaled input data, use recipies package step_center, step_scale, and step_sqrt to center data on ???, scale it, and remove outliers
+```{r}
+rec_obj <- recipe(cases ~ ., df) %>%
+    step_sqrt(cases) %>%
+    step_center(cases) %>%
+    step_scale(cases) %>%
+    prep()
+
+df_processed_tbl <- bake(rec_obj, df)
+
+df_processed_tbl
+
+```
+record center "adjustments" so you can reverse the values for interpretation later
+```{r}
+center_history <- rec_obj$steps[[2]]$means["cases"]
+scale_history <- rec_obj$steps[[3]]$sds["cases"]
+
+c("center", center_history, "scale", scale_history)
+```
+
+Keras LSTM expects 3d array with num_samples, num_timesteps, and num_features
+num_samples is the number of observations in set, goes in the arg "batch_size"
+num_timesteps is the length of hidden state??? 
+ - this hidden state is dependent on how far ahead you want to forecast, usually just literally input the number of steps to "step ahead" 
+num-features is number of predictors. for this univariate example, = 1
+
+```{r}
+n_timesteps <- 3
+n_predictions <- n_timesteps
+batch_size <- 10
+
+# functions used
+build_matrix <- function(tseries, overall_timesteps) {
+  t(sapply(1:(length(tseries) - overall_timesteps + 1), function(x) 
+    tseries[x:(x + overall_timesteps - 1)]))
+}
+
+reshape_X_3d <- function(X) {
+  dim(X) <- c(dim(X)[1], dim(X)[2], 1)
+  X
+}
+
+# extract values from data frame
+train_vals <- df_processed_tbl %>%
+  filter(key == "training") %>%
+  select(cases) %>%
+  pull()
+valid_vals <- df_processed_tbl %>%
+  filter(key == "validation") %>%
+  select(cases) %>%
+  pull()
+test_vals <- df_processed_tbl %>%
+  filter(key == "testing") %>%
+  select(cases) %>%
+  pull()
+
+
+# build the windowed matrices
+train_matrix <-
+  build_matrix(train_vals, n_timesteps + n_predictions)
+valid_matrix <-
+  build_matrix(valid_vals, n_timesteps + n_predictions)
+test_matrix <- build_matrix(test_vals, n_timesteps + n_predictions)
+
+# separate matrices into training and testing parts
+# also, discard last batch if there are fewer than batch_size samples
+# (a purely technical requirement)
+X_train <- train_matrix[, 1:n_timesteps]
+y_train <- train_matrix[, (n_timesteps + 1):(n_timesteps * 2)]
+X_train <- X_train[1:(nrow(X_train) %/% batch_size * batch_size), ]
+y_train <- y_train[1:(nrow(y_train) %/% batch_size * batch_size), ]
+
+X_valid <- valid_matrix[, 1:n_timesteps]
+y_valid <- valid_matrix[, (n_timesteps + 1):(n_timesteps * 2)]
+X_valid <- X_valid[1:(nrow(X_valid) %/% batch_size * batch_size), ]
+y_valid <- y_valid[1:(nrow(y_valid) %/% batch_size * batch_size), ]
+
+X_test <- test_matrix[, 1:n_timesteps]
+y_test <- test_matrix[, (n_timesteps + 1):(n_timesteps * 2)]
+#X_test <- X_test[1:(nrow(X_test) %/% batch_size * batch_size), ]
+#y_test <- y_test[1:(nrow(y_test) %/% batch_size * batch_size), ]
+# add on the required third axis
+X_train <- reshape_X_3d(matrix(X_train)) #note, x_train is coming out as a list rather than a matrix??? should be a 3d matrix
+X_valid <- reshape_X_3d(matrix(X_valid)) #does matrixing the list work?? 
+X_test <- reshape_X_3d(matrix(X_test))
+
+y_train <- reshape_X_3d(matrix(y_train))
+y_valid <- reshape_X_3d(matrix(y_valid))
+y_test <- reshape_X_3d(matrix(y_test))
+```
+
+building the actual LSTM model
+```{r}
+FLAGS <- flags(
+  flag_boolean('stateful', FALSE), #??? 
+  flag_boolean('stack_layers', FALSE), #adding layers does ??? guides says it doesn't help for this task
+  flag_integer('batch_size', 10), #samples fed to model per iteration
+  flag_integer('n_timesteps', 12), #size of predictions, which is the same as size of hidden state
+  flag_integer('n_epochs', 100), #how many epochs??? (time intervals?)
+  flag_numeric('dropout', 0.2), #drops .2 units for linear transformation of inputs
+  flag_numeric('recurrent_dropout', 0.2), #drops .2 units for linear transformation??? 
+  flag_string('loss', 'logcosh'), #loss function used, logcosh worked better than MSE
+  flag_string('optimizer_type', 'sgd'), #use stochastic gradient descent for optimization (other options include adam or rmsprop)
+  flag_integer('n_units', 128), #size of lstm layer
+  flag_numeric('lr', 0.003), #learning rate?
+  flag_numeric('momentum', 0.9), #parameter for SGD optimizer
+  flag_integer('patience', 10) #early stopping callback check
+)
+
+# the number of predictions we'll make equals the length of the hidden state
+n_predictions <- FLAGS$n_timesteps
+# how many features = predictors we have
+n_features <- 1
+
+optimizer <- switch(FLAGS$optimizer_type,
+                    sgd = optimizer_sgd(lr = FLAGS$lr, 
+                    momentum = FLAGS$momentum))
+
+#early stop function if the loss starts "stalling"? 
+callbacks <- list(
+  callback_early_stopping(patience = FLAGS$patience)
+)
+
+```
+note, requires CUDA installation to be in/on the system PATH
+
+actually create model
+```{r}
+model <- keras_model_sequential()
+
+model %>%
+  layer_lstm(
+    units = FLAGS$n_units, 
+    # the first layer in a model needs to know the shape of the input data
+    batch_input_shape  = c(FLAGS$batch_size, FLAGS$n_timesteps, n_features),
+    dropout = FLAGS$dropout,
+    recurrent_dropout = FLAGS$recurrent_dropout,
+    # by default, an LSTM just returns the final state
+    return_sequences = TRUE
+  ) %>% time_distributed(layer_dense(units = 1))
+
+model %>%
+  compile(
+    loss = FLAGS$loss,
+    optimizer = optimizer,
+    # in addition to the loss, Keras will inform us about current 
+    # MSE while training
+    metrics = list("mean_squared_error")
+  )
+
+history <- model %>% fit(
+  x          = X_train,
+  y          = y_train,
+  validation_data = list(X_valid, y_valid),
+  batch_size = FLAGS$batch_size,
+  epochs     = FLAGS$n_epochs,
+  callbacks = callbacks
+)
+```
+ehhhh kinda works doesn't really converge though
+
+```{r}
+
+```
+
