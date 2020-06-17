@@ -292,8 +292,8 @@ ex2 <- tbl_time(ex1, date)
 
 rolling_origin_resamples <- rolling_origin(
   ex2,
-  initial    = 18,
-  assess     = 6,
+  initial    = 24,
+  assess     = 12,
   cumulative = FALSE, #means that the resmaples will be the same... size? 
   skip       = 6
 )
@@ -503,7 +503,7 @@ num-features is number of predictors. for this univariate example, = 1
 ```{r}
 n_timesteps <- 3
 n_predictions <- n_timesteps
-batch_size <- 10
+batch_size <- 6
 
 # functions used
 build_matrix <- function(tseries, overall_timesteps) {
@@ -553,8 +553,8 @@ y_valid <- y_valid[1:(nrow(y_valid) %/% batch_size * batch_size), ]
 
 X_test <- test_matrix[, 1:n_timesteps]
 y_test <- test_matrix[, (n_timesteps + 1):(n_timesteps * 2)]
-#X_test <- X_test[1:(nrow(X_test) %/% batch_size * batch_size), ]
-#y_test <- y_test[1:(nrow(y_test) %/% batch_size * batch_size), ]
+X_test <- X_test[1:(nrow(X_test) %/% batch_size * batch_size), ]
+y_test <- y_test[1:(nrow(y_test) %/% batch_size * batch_size), ]
 # add on the required third axis
 X_train <- reshape_X_3d(matrix(X_train)) #note, x_train is coming out as a list rather than a matrix??? should be a 3d matrix
 X_valid <- reshape_X_3d(matrix(X_valid)) #does matrixing the list work?? 
@@ -633,9 +633,51 @@ history <- model %>% fit(
   callbacks = callbacks
 )
 ```
-ehhhh kinda works doesn't really converge though
+convergence(?) varies strongly based on batch size, steps, skips, ect
 
 ```{r}
-
+history$metrics
 ```
+
+
+look at model vs training set
+```{r}
+pred_train <- model %>%
+  predict(X_train, batch_size = FLAGS$batch_size) %>%
+  .[, , 1]
+
+# Retransform values to original scale
+pred_train <- (pred_train * scale_history + center_history) ^2
+compare_train <- df %>% filter(key == "training")
+```
+
+how to output what the actual forecasts are??? RMSE/metric evaluation?? 
+
+```{r}
+# build a dataframe that has both actual and predicted values
+for (i in 1:nrow(pred_train)) {
+  varname <- paste0("pred_train", i)
+  compare_train <-
+    mutate(compare_train,!!varname := c(
+      rep(NA, FLAGS$n_timesteps + i - 1),
+      pred_train[i,],
+      rep(NA, nrow(compare_train) - FLAGS$n_timesteps * 2 - i + 1)
+    ))
+}
+```
+
+```{r}
+for (i in (pred_train)) {
+  print(i)
+}
+```
+
+
+profiling diagnostics filter maybe? 
+
+```{r}
+library(skimr)
+#look at ts and filter for certain percentage of missing/zero values in order to discard infrequent items? 
+```
+
 
