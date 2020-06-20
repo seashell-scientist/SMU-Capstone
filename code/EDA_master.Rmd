@@ -171,10 +171,11 @@ str(temp)
 
 ```{r sample1, eval=FALSE}
 #only one sample combination
-sample_combinations1 = sample_combinations[1,]
+sample_combinations1 = sample_combinations[2,]
 temp1 = inner_join(temp,sample_combinations1)
 product = sample_combinations1$Product
 customer = sample_combinations1$Customer_ID
+product_type = sample_combinations1$Customer_ID
 
 plot.ts(temp1$STD_Cases, 
         main=c(paste("Standard Case Sales of ", product), 
@@ -192,26 +193,44 @@ invisible(acf(temp1$STD_Cases[(1+length(temp1$date)/2):length(temp1$date)], main
 aic = aic5.wge(temp1$STD_Cases,type="aic")
 aic
 
-#for (row in 1:nrow(aic)) {
-for (row in 1:1) {
-  if(aic$`   p` == 0 & aic$`   q` == 0){
+for (i in 1:5){
+  if(aic[i,1] == 0 & aic[i,2] == 0){
     print("One of the top 5 models using BIC was an ARMA(0,0), indicating this series may be white noise.")
   }
+  
 }
+
+model1 = invisible(aic.wge(temp1$STD_Cases,type="aic"))
+model1_est = invisible(est.arma.wge(temp1$STD_Cases,p=model1$p,q=model1$q))
 ```
 
 ```{r loop}
+results <- data.frame(Product_Type=integer(),
+                      Product=character(),
+                      Customer=integer(),
+                      ljung_10=double(),
+                      ljung_24=double(),
+                      ljung_results=character(),
+                      top_5_bic=character(),
+                      Model_1_Type=character(),
+                      stringsAsFactors = FALSE)
+
 # loop through sample combinations
 for(i in 1:10) {
   sample_combinations1 = sample_combinations[i,]
   temp1 = inner_join(temp,sample_combinations1)
   product = sample_combinations1$Product
   customer = sample_combinations1$Customer_ID
+  product_type = sample_combinations1$Customer_ID
+  
+  results[i,"Product_Type"] = product_type
+  results[i,"Product"] = as.character(sample_combinations1$Product)
+  results[i,"Customer"] = customer
   
   par(mfrow=c(1,1))
   plot.ts(temp1$STD_Cases, 
           main=c(paste("Standard Case Sales of ", product), 
-                 paste("for ",customer)),
+                 paste("for Customer",customer)),
           xlab="Months",
           ylab="Standard Cases")
   
@@ -223,32 +242,49 @@ for(i in 1:10) {
   invisible(acf(temp1$STD_Cases[(1+length(temp1$date)/2):length(temp1$date)], main="ACF for 2nd Half of Series"))
 
   sink("file")
-  ljung_24 = ljung.wge(temp1$STD_Cases,K=24)
+  ljung_10 = ljung.wge(temp1$STD_Cases,K=10)
   sink()
-  cat("The Ljung-Box test with K=24 has a chi-square value of",ljung_24$chi.square,".")
+  cat("The Ljung-Box test with K=10 has a p-value of",ljung_10$pval,".")
+  results[i,"ljung_10"] = ljung_10$pval
   
   sink("file")
-  ljung_48 = ljung.wge(temp1$STD_Cases,K=48)
+  ljung_24 = ljung.wge(temp1$STD_Cases,K=24)
   sink()
-  cat("The Ljung-Box test with K=48 has a chi-square value of",ljung_48$chi.square,".")
+  cat("The Ljung-Box test with K=24 has a p-value of",ljung_24$pval,".")
+  results[i,"ljung_24"] = ljung_24$pval
   
-  if (ljung_24$chi.square < .05 & ljung_48$chi.square < .05){
+  if (ljung_10$pval < .05 & ljung_24$pval < .05){
     print("Ljung-Box test results: At a significance level of 0.05, we reject the null hypothesis that this dataset is white noise.")
-  } else if (ljung_24$chi.square > .05 & ljung_48$chi.square < .05){
+    results[i,"ljung_results"] = "not white noise"
+  } else if (ljung_10$pval > .05 & ljung_24$pval < .05){
     print("Ljung-Box test results: At a significance level of 0.05, the test is inconclusive.")
-  } else if (ljung_24$chi.square < .05 & ljung_48$chi.square > .05){
+    results[i,"ljung_results"] = "inconclusive"
+  } else if (ljung_10$pval < .05 & ljung_24$pval > .05){
     print("Ljung-Box test results: At a significance level of 0.05, the test is inconclusive.")
+    results[i,"ljung_results"] = "inconclusive"
   } else {
     print("Ljung-Box test results: At a significance level of 0.05, we fail to reject the null hypothesis that this dataset is white noise.")
+    results[i,"ljung_results"] = "white noise"
   }
   
   aic = invisible(aic5.wge(temp1$STD_Cases,type="bic"))
+  print(aic)
   
-  #for (row in 1:nrow(aic)) {
-  for (row in 1:1) {
-    if(aic$`   p` == 0 & aic$`   q` == 0){
+ for (row in 1:nrow(aic)) {
+    if(aic[row,1] == 0 & aic[row,2] == 0){
       print("One of the top 5 models using BIC was an ARMA(0,0), indicating this series may be white noise.")
+      results[i,"top_5_bic"] = "white noise"
     }
+ }
+  
+  #ARMA Model
+  model1 = invisible(aic.wge(temp1$STD_Cases,type="aic"))
+  model1_est = invisible(est.arma.wge(temp1$STD_Cases,p=model1$p,q=model1$q))
+  results[i,"Model_1_Type"] = paste("ARMA(",model1$p,",",model1$q,")",sep="")
+  
+  
+  
 }
-}
+
+formattable(results, align = c("l", rep("r", NCOL(table_a) - 1)))
 ```
