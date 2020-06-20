@@ -286,6 +286,12 @@ library(tfruns)
 format sample combination ts into tripartate LSTM format
 first need ts form, set index and value
 cross validation for time series: need to keep the time dependency, can't just shuffle things without losing meaning. create multiple synthetic "futures"? 
+
+```{r}
+ex1 <- data.frame(date = strptime((temp1$date), "%d/%m/%Y"), cases = temp1$STD_Cases)
+ggplot(ex1, aes(x = date, y = cases)) + geom_line()
+```
+
 ```{r}
 ex1 <- data.frame(date = strptime((temp1$date), "%d/%m/%Y"), cases = temp1$STD_Cases)
 ex2 <- tbl_time(ex1, date)
@@ -789,6 +795,11 @@ predict_keras_lstm_future <- function(data, epochs = 300, ...) {
 future_pred_1 <- predict_keras_lstm_future(temp1, epochs = 100)
 ```
 
+
+
+```{r}
+
+```
 profiling diagnostics filter maybe? 
 
 ```{r}
