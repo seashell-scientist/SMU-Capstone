@@ -22,6 +22,7 @@ library(dplyr)
 library(ggplot2)
 library(changepoint)
 library(date)
+library(R.devices)
 knitr::opts_chunk$set(echo = TRUE,
                prompt = FALSE,
                tidy = TRUE,
@@ -144,7 +145,7 @@ sample_combinations = sample_combinations[ , !(names(sample_combinations) %in% d
 formattable(sample_combinations, align = c("l", rep("r", NCOL(table_a) - 1)))
 ```
 
-## Time Series EDA
+## Time Series EDA & Forecasting
 ***
 
 ```{r eda1}
@@ -199,9 +200,10 @@ for (i in 1:5){
   }
   
 }
-
-model1 = invisible(aic.wge(temp1$STD_Cases,type="aic"))
-model1_est = invisible(est.arma.wge(temp1$STD_Cases,p=model1$p,q=model1$q))
+test <- ts(temp1$STD_Cases[1:60])
+model1 = invisible(aic.wge(test,type="aic"))
+model1_est = invisible(est.arma.wge(test,p=model1$p,q=model1$q))
+fore.arma.wge(test,phi = .888408, theta = .7637687, n.ahead = 9,plot=FALSE)
 ```
 
 ```{r loop}
@@ -212,7 +214,50 @@ results <- data.frame(Product_Type=integer(),
                       ljung_24=double(),
                       ljung_results=character(),
                       top_5_bic=character(),
-                      Model_1_Type=character(),
+                      EqualMeans_2_ASE=double(),
+                      EqualMeans_3_ASE=double(),
+                      EqualMeans_4_ASE=double(),
+                      EqualMeans_5_ASE=double(),
+                      EqualMeans_6_ASE=double(),
+                      EqualMeans_7_ASE=double(),
+                      EqualMeans_8_ASE=double(),
+                      EqualMeans_9_ASE=double(),
+                      EqualMeans_10_ASE=double(),
+                      EqualMeans_11_ASE=double(),
+                      EqualMeans_12_ASE=double(),
+                      ARMA_2_ASE=double(),
+                      ARMA_3_ASE=double(),
+                      ARMA_4_ASE=double(),
+                      ARMA_5_ASE=double(),
+                      ARMA_6_ASE=double(),
+                      ARMA_7_ASE=double(),
+                      ARMA_8_ASE=double(),
+                      ARMA_9_ASE=double(),
+                      ARMA_10_ASE=double(),
+                      ARMA_11_ASE=double(),
+                      ARMA_12_ASE=double(),
+                      ARIMA_2_ASE=double(),
+                      ARIMA_3_ASE=double(),
+                      ARIMA_4_ASE=double(),
+                      ARIMA_5_ASE=double(),
+                      ARIMA_6_ASE=double(),
+                      ARIMA_7_ASE=double(),
+                      ARIMA_8_ASE=double(),
+                      ARIMA_9_ASE=double(),
+                      ARIMA_10_ASE=double(),
+                      ARIMA_11_ASE=double(),
+                      ARIMA_12_ASE=double(),
+                      ARIMA_S12_2_ASE=double(),
+                      ARIMA_S12_3_ASE=double(),
+                      ARIMA_S12_4_ASE=double(),
+                      ARIMA_S12_5_ASE=double(),
+                      ARIMA_S12_6_ASE=double(),
+                      ARIMA_S12_7_ASE=double(),
+                      ARIMA_S12_8_ASE=double(),
+                      ARIMA_S12_9_ASE=double(),
+                      ARIMA_S12_10_ASE=double(),
+                      ARIMA_S12_11_ASE=double(),
+                      ARIMA_S12_12_ASE=double(),
                       stringsAsFactors = FALSE)
 
 # loop through sample combinations
@@ -267,8 +312,9 @@ for(i in 1:10) {
     results[i,"ljung_results"] = "white noise"
   }
   
+  sink("file")
   aic = invisible(aic5.wge(temp1$STD_Cases,type="bic"))
-  print(aic)
+  sink()
   
  for (row in 1:nrow(aic)) {
     if(aic[row,1] == 0 & aic[row,2] == 0){
@@ -276,13 +322,93 @@ for(i in 1:10) {
       results[i,"top_5_bic"] = "white noise"
     }
  }
-  
+
+  #Equal Means Model
+  for(j in 2:12) {
+    trainingSize = 60
+    ASEHolder = numeric()
+    
+    for( k in 1:(84-(trainingSize + j) + 1))
+    {
+      sink("file")
+      model0_mean = mean(temp1$STD_Cases[k:(k+(trainingSize-1))])
+      ASE = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + j - 1)] - model0_mean)^2)
+      ASEHolder[k] = ASE
+      sink()
+    }
+    
+    WindowedASE = mean(ASEHolder)
+    results[i,paste0("EqualMeans_",j,"_ASE")] = WindowedASE
+  }
+
   #ARMA Model
-  model1 = invisible(aic.wge(temp1$STD_Cases,type="aic"))
-  model1_est = invisible(est.arma.wge(temp1$STD_Cases,p=model1$p,q=model1$q))
-  results[i,"Model_1_Type"] = paste("ARMA(",model1$p,",",model1$q,")",sep="")
+  for(j in 2:12) {
+    trainingSize = 60
+    ASEHolder = numeric()
+    
+    for( k in 1:(84-(trainingSize + j) + 1))
+    {
+      sink("file")
+      model1 = invisible(aic.wge(temp1$STD_Cases[k:(k+(trainingSize-1))],type="aic"))
+      model1_est = invisible(est.arma.wge(temp1$STD_Cases[k:(k+(trainingSize-1))],p=model1$p,q=model1$q))
+      forecasts = fore.aruma.wge(temp1$STD_Cases[k:(k+(trainingSize-1))],phi = model1_est$phi, theta = model1_est$theta, s = 0, d = 0,n.ahead = j,plot=FALSE)
+      ASE = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + j - 1)] - forecasts$f)^2)
+      ASEHolder[k] = ASE
+      sink()
+    }
+    
+    WindowedASE = mean(ASEHolder)
+    results[i,paste0("ARMA_",j,"_ASE")] = WindowedASE
+
+  }
   
+  #ARIMA Model with d=1
+  nulldev()
+  temp2 = artrans.wge(temp1$STD_Cases,1)
+  dev.off()
+  for(j in 2:12) {
+    trainingSize = 60
+    ASEHolder = numeric()
+    
+    for( k in 1:(84-(trainingSize + j) + 1))
+    {
+      sink("file")
+      model1 = invisible(aic.wge(temp2[k:(k+(trainingSize-1-1))],type="aic"))
+      model1_est = invisible(est.arma.wge(temp2[k:(k+(trainingSize-1-1))],p=model1$p,q=model1$q))
+      forecasts = fore.aruma.wge(temp1$STD_Cases[k:(k+(trainingSize-1))],phi = model1_est$phi, theta = model1_est$theta, s = 0, d = 1,n.ahead = j,plot=FALSE)
+      ASE = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + j - 1)] - forecasts$f)^2)
+      ASEHolder[k] = ASE
+      sink()
+    }
+    
+    WindowedASE = mean(ASEHolder)
+    results[i,paste0("ARIMA_",j,"_ASE")] = WindowedASE
+
+  }
   
+  #ARIMA Model with S=12
+  nulldev()
+  temp2 = artrans.wge(temp1$STD_Cases,phi.tr=c(rep(0,11),1))
+  dev.off()
+  for(j in 2:12) {
+    trainingSize = 60
+    ASEHolder = numeric()
+    
+    for( k in 1:(84-(trainingSize + j) + 1))
+    {
+      sink("file")
+      model1 = invisible(aic.wge(temp2[k:(k+(trainingSize-1-12))],type="aic"))
+      model1_est = invisible(est.arma.wge(temp2[k:(k+(trainingSize-1-12))],p=model1$p,q=model1$q))
+      forecasts = fore.aruma.wge(temp1$STD_Cases[k:(k+(trainingSize-1))],phi = model1_est$phi, theta = model1_est$theta, s = 12, d = 0,n.ahead = j,plot=FALSE)
+      ASE = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + j - 1)] - forecasts$f)^2)
+      ASEHolder[k] = ASE
+      sink()
+    }
+    
+    WindowedASE = mean(ASEHolder)
+    results[i,paste0("ARIMA_S12_",j,"_ASE")] = WindowedASE
+
+  }
   
 }
 
