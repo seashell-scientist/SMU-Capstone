@@ -147,6 +147,30 @@ drops <- c("n")
 sample_combinations = sample_combinations[ , !(names(sample_combinations) %in% drops)]
 formattable(sample_combinations, align = c("l", rep("r", NCOL(table_a) - 1)))
 ```
+```{r}
+#temp_store_product_list testing
+ctest <- combinations$Customer_ID[1]
+x <- combinations[which(combinations$Customer_ID == ctest), ]
+ptest <- x$Product[1]
+
+z <- df[which(df$Customer_ID == ctest), ]
+y <- z[which(z$Product == ptest), ] #filter down to single product from single store
+
+nacounter <- which(y$STD_Cases == 0) %>% length() %>% sum()
+ 
+ggplot() +
+  geom_line(data = y, aes(x = as.Date(date, '%m/%d/%Y'), y = STD_Cases)) 
+
+paste("Number of missing values: " ,nacounter)
+
+summary(y$STD_Cases)
+summary(y$Dollar_Sales)
+```
+
+
+```{r}
+plot(as.Date(y$date, '%m/%d/%Y'), y$STD_Cases)
+```
 
 ## Time Series EDA
 ***
