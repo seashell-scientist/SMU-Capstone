@@ -9,7 +9,7 @@ output:
 
 ```{r setup, include=FALSE}
 library(rmdformats)
-library(tidyverse)  # data manipulation
+library(tidyverse)  # data manipulaiton
 library(data.table)
 library(tswge)  # Time series package
 library(tseries)  # for Dickey-Fuller test 
@@ -22,6 +22,7 @@ library(dplyr)
 library(ggplot2)
 library(changepoint)
 library(date)
+library(R.devices)
 knitr::opts_chunk$set(echo = TRUE,
                prompt = FALSE,
                tidy = TRUE,
@@ -61,7 +62,6 @@ df <- rbind(df_17_19,df_15_16,df_13_14)
 
 dim(df)
 ```
-
 ## Check for Missing Data
 ***
 Here we create a function to check for missing data.
@@ -147,8 +147,10 @@ drops <- c("n")
 sample_combinations = sample_combinations[ , !(names(sample_combinations) %in% drops)]
 formattable(sample_combinations, align = c("l", rep("r", NCOL(table_a) - 1)))
 ```
+
+
 ```{r}
-#temp_store_product_list testing
+#temp_store_product_list testing app testing
 ctest <- combinations$Customer_ID[1]
 x <- combinations[which(combinations$Customer_ID == ctest), ]
 ptest <- x$Product[1]
@@ -167,12 +169,13 @@ summary(y$STD_Cases)
 summary(y$Dollar_Sales)
 ```
 
-
+tswge doesn't seem to publish through rshiny?? alternatives??
 ```{r}
-plot(as.Date(y$date, '%m/%d/%Y'), y$STD_Cases)
+acf(y$STD_Cases)
+spectrum(y$STD_Cases)
 ```
 
-## Time Series EDA
+## Time Series EDA & Forecasting
 ***
 
 ```{r eda1}
@@ -199,15 +202,16 @@ str(temp)
 
 ```{r sample1, eval=FALSE}
 #only one sample combination
-sample_combinations1 = sample_combinations[1,]
+sample_combinations1 = sample_combinations[2,]
 temp1 = inner_join(temp,sample_combinations1)
 product = sample_combinations1$Product
 customer = sample_combinations1$Customer_ID
+product_type = sample_combinations1$Customer_ID
 
 plot.ts(temp1$STD_Cases, 
         main=c(paste("Standard Case Sales of ", product), 
                paste("for ",customer)),
-        xlab="Days",
+        xlab="Months",
         ylab="Standard Cases")
 
 par(mfrow = c(2,2))
@@ -220,27 +224,89 @@ invisible(acf(temp1$STD_Cases[(1+length(temp1$date)/2):length(temp1$date)], main
 aic = aic5.wge(temp1$STD_Cases,type="aic")
 aic
 
-#for (row in 1:nrow(aic)) {
-for (row in 1:1) {
-  if(aic$`   p` == 0 & aic$`   q` == 0){
+for (i in 1:5){
+  if(aic[i,1] == 0 & aic[i,2] == 0){
     print("One of the top 5 models using BIC was an ARMA(0,0), indicating this series may be white noise.")
   }
+  
 }
+test <- ts(temp1$STD_Cases[1:60])
+model1 = invisible(aic.wge(test,type="aic"))
+model1_est = invisible(est.arma.wge(test,p=model1$p,q=model1$q))
+fore.arma.wge(test,phi = .888408, theta = .7637687, n.ahead = 9,plot=FALSE)
 ```
 
 ```{r loop}
+results <- data.frame(Product_Type=integer(),
+                      Product=character(),
+                      Customer=integer(),
+                      ljung_10=double(),
+                      ljung_24=double(),
+                      ljung_results=character(),
+                      top_5_bic=character(),
+                      EqualMeans_2_ASE=double(),
+                      EqualMeans_3_ASE=double(),
+                      EqualMeans_4_ASE=double(),
+                      EqualMeans_5_ASE=double(),
+                      EqualMeans_6_ASE=double(),
+                      EqualMeans_7_ASE=double(),
+                      EqualMeans_8_ASE=double(),
+                      EqualMeans_9_ASE=double(),
+                      EqualMeans_10_ASE=double(),
+                      EqualMeans_11_ASE=double(),
+                      EqualMeans_12_ASE=double(),
+                      ARMA_2_ASE=double(),
+                      ARMA_3_ASE=double(),
+                      ARMA_4_ASE=double(),
+                      ARMA_5_ASE=double(),
+                      ARMA_6_ASE=double(),
+                      ARMA_7_ASE=double(),
+                      ARMA_8_ASE=double(),
+                      ARMA_9_ASE=double(),
+                      ARMA_10_ASE=double(),
+                      ARMA_11_ASE=double(),
+                      ARMA_12_ASE=double(),
+                      ARIMA_2_ASE=double(),
+                      ARIMA_3_ASE=double(),
+                      ARIMA_4_ASE=double(),
+                      ARIMA_5_ASE=double(),
+                      ARIMA_6_ASE=double(),
+                      ARIMA_7_ASE=double(),
+                      ARIMA_8_ASE=double(),
+                      ARIMA_9_ASE=double(),
+                      ARIMA_10_ASE=double(),
+                      ARIMA_11_ASE=double(),
+                      ARIMA_12_ASE=double(),
+                      ARIMA_S12_2_ASE=double(),
+                      ARIMA_S12_3_ASE=double(),
+                      ARIMA_S12_4_ASE=double(),
+                      ARIMA_S12_5_ASE=double(),
+                      ARIMA_S12_6_ASE=double(),
+                      ARIMA_S12_7_ASE=double(),
+                      ARIMA_S12_8_ASE=double(),
+                      ARIMA_S12_9_ASE=double(),
+                      ARIMA_S12_10_ASE=double(),
+                      ARIMA_S12_11_ASE=double(),
+                      ARIMA_S12_12_ASE=double(),
+                      stringsAsFactors = FALSE)
+
 # loop through sample combinations
 for(i in 1:10) {
   sample_combinations1 = sample_combinations[i,]
   temp1 = inner_join(temp,sample_combinations1)
   product = sample_combinations1$Product
   customer = sample_combinations1$Customer_ID
+  product_type = sample_combinations1$Customer_ID
+  
+  results[i,"Product_Type"] = product_type
+  results[i,"Product"] = as.character(sample_combinations1$Product)
+  results[i,"Customer"] = customer
   
   par(mfrow=c(1,1))
   plot.ts(temp1$STD_Cases, 
           main=c(paste("Standard Case Sales of ", product), 
-                 paste("for ",customer)),
-          xlab="Days",
+                 paste("for Customer",customer)),
+          xlab="Months",
           ylab="Standard Cases")
   
   par(mfrow = c(2,2))
@@ -251,35 +317,138 @@ for(i in 1:10) {
   invisible(acf(temp1$STD_Cases[(1+length(temp1$date)/2):length(temp1$date)], main="ACF for 2nd Half of Series"))
 
   sink("file")
-  ljung_24 = ljung.wge(temp1$STD_Cases,K=24)
+  ljung_10 = ljung.wge(temp1$STD_Cases,K=10)
   sink()
-  cat("The Ljung-Box test with K=24 has a chi-square value of",ljung_24$chi.square,".")
+  cat("The Ljung-Box test with K=10 has a p-value of",ljung_10$pval,".")
+  results[i,"ljung_10"] = ljung_10$pval
   
   sink("file")
-  ljung_48 = ljung.wge(temp1$STD_Cases,K=48)
+  ljung_24 = ljung.wge(temp1$STD_Cases,K=24)
   sink()
-  cat("The Ljung-Box test with K=48 has a chi-square value of",ljung_48$chi.square,".")
+  cat("The Ljung-Box test with K=24 has a p-value of",ljung_24$pval,".")
+  results[i,"ljung_24"] = ljung_24$pval
   
-  if (ljung_24$chi.square < .05 & ljung_48$chi.square < .05){
+  if (ljung_10$pval < .05 & ljung_24$pval < .05){
     print("Ljung-Box test results: At a significance level of 0.05, we reject the null hypothesis that this dataset is white noise.")
-  } else if (ljung_24$chi.square > .05 & ljung_48$chi.square < .05){
+    results[i,"ljung_results"] = "not white noise"
+  } else if (ljung_10$pval > .05 & ljung_24$pval < .05){
     print("Ljung-Box test results: At a significance level of 0.05, the test is inconclusive.")
-  } else if (ljung_24$chi.square < .05 & ljung_48$chi.square > .05){
+    results[i,"ljung_results"] = "inconclusive"
+  } else if (ljung_10$pval < .05 & ljung_24$pval > .05){
     print("Ljung-Box test results: At a significance level of 0.05, the test is inconclusive.")
+    results[i,"ljung_results"] = "inconclusive"
   } else {
     print("Ljung-Box test results: At a significance level of 0.05, we fail to reject the null hypothesis that this dataset is white noise.")
+    results[i,"ljung_results"] = "white noise"
   }
   
+  sink("file")
   aic = invisible(aic5.wge(temp1$STD_Cases,type="bic"))
+  sink()
   
-  #for (row in 1:nrow(aic)) {
-  for (row in 1:1) {
-    if(aic$`   p` == 0 & aic$`   q` == 0){
+ for (row in 1:nrow(aic)) {
+    if(aic[row,1] == 0 & aic[row,2] == 0){
       print("One of the top 5 models using BIC was an ARMA(0,0), indicating this series may be white noise.")
+      results[i,"top_5_bic"] = "white noise"
     }
+ }
+
+  #Equal Means Model
+  for(j in 2:12) {
+    trainingSize = 60
+    ASEHolder = numeric()
+    
+    for( k in 1:(84-(trainingSize + j) + 1))
+    {
+      sink("file")
+      model0_mean = mean(temp1$STD_Cases[k:(k+(trainingSize-1))])
+      ASE = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + j - 1)] - model0_mean)^2)
+      ASEHolder[k] = ASE
+      sink()
+    }
+    
+    WindowedASE = mean(ASEHolder)
+    results[i,paste0("EqualMeans_",j,"_ASE")] = WindowedASE
+  }
+
+  #ARMA Model
+  for(j in 2:12) {
+    trainingSize = 60
+    ASEHolder = numeric()
+    
+    for( k in 1:(84-(trainingSize + j) + 1))
+    {
+      sink("file")
+      model1 = invisible(aic.wge(temp1$STD_Cases[k:(k+(trainingSize-1))],type="aic"))
+      model1_est = invisible(est.arma.wge(temp1$STD_Cases[k:(k+(trainingSize-1))],p=model1$p,q=model1$q))
+      forecasts = fore.aruma.wge(temp1$STD_Cases[k:(k+(trainingSize-1))],phi = model1_est$phi, theta = model1_est$theta, s = 0, d = 0,n.ahead = j,plot=FALSE)
+      ASE = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + j - 1)] - forecasts$f)^2)
+      ASEHolder[k] = ASE
+      sink()
+    }
+    
+    WindowedASE = mean(ASEHolder)
+    results[i,paste0("ARMA_",j,"_ASE")] = WindowedASE
+
+  }
+  
+  #ARIMA Model with d=1
+  nulldev()
+  temp2 = artrans.wge(temp1$STD_Cases,1)
+  dev.off()
+  for(j in 2:12) {
+    trainingSize = 60
+    ASEHolder = numeric()
+    
+    for( k in 1:(84-(trainingSize + j) + 1))
+    {
+      sink("file")
+      model1 = invisible(aic.wge(temp2[k:(k+(trainingSize-1-1))],type="aic"))
+      model1_est = invisible(est.arma.wge(temp2[k:(k+(trainingSize-1-1))],p=model1$p,q=model1$q))
+      forecasts = fore.aruma.wge(temp1$STD_Cases[k:(k+(trainingSize-1))],phi = model1_est$phi, theta = model1_est$theta, s = 0, d = 1,n.ahead = j,plot=FALSE)
+      ASE = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + j - 1)] - forecasts$f)^2)
+      ASEHolder[k] = ASE
+      sink()
+    }
+    
+    WindowedASE = mean(ASEHolder)
+    results[i,paste0("ARIMA_",j,"_ASE")] = WindowedASE
+
+  }
+  
+  #ARIMA Model with S=12
+  nulldev()
+  temp2 = artrans.wge(temp1$STD_Cases,phi.tr=c(rep(0,11),1))
+  dev.off()
+  for(j in 2:12) {
+    trainingSize = 60
+    ASEHolder = numeric()
+    
+    for( k in 1:(84-(trainingSize + j) + 1))
+    {
+      sink("file")
+      model1 = invisible(aic.wge(temp2[k:(k+(trainingSize-1-12))],type="aic"))
+      model1_est = invisible(est.arma.wge(temp2[k:(k+(trainingSize-1-12))],p=model1$p,q=model1$q))
+      forecasts = fore.aruma.wge(temp1$STD_Cases[k:(k+(trainingSize-1))],phi = model1_est$phi, theta = model1_est$theta, s = 12, d = 0,n.ahead = j,plot=FALSE)
+      ASE = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + j - 1)] - forecasts$f)^2)
+      ASEHolder[k] = ASE
+      sink()
+    }
+    
+    WindowedASE = mean(ASEHolder)
+    results[i,paste0("ARIMA_S12_",j,"_ASE")] = WindowedASE
+
+  }
+  
 }
-}
+
+formattable(results, align = c("l", rep("r", NCOL(table_a) - 1)))
 ```
+
+arma/arima model writeups
+
+(the arima portion of the pipeline) will have an ARMA, ARIMA with d = 1, and ARIMA with s = 12 fitted to each product/customer record and forecasted 2-12 months out. 
+
 
 ```{r}
 # Core Tidyverse
