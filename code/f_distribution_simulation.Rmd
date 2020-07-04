@@ -87,5 +87,5 @@ x <- seq(0,8,0.01)
 d <- density(results$F_statistic)
 plot(d,xlim=xlim,ylim=ylim,main="F-Statistic Distribution for Equal Means/ARMA Rolling Window ASEs",xlab="")
 curve(df(x,22,22),add=T,col='blue')
-legend(6,1,legend=c("Equal Means/ARMA","F Distribution DF=22,22"),col=c("black","blue"),lty=1:1, cex=0.8)
+legend(5,1,legend=c("Equal Means/ARMA","F Distribution DF=22,22"),col=c("black","blue"),lty=1:1, cex=0.8)
 ```

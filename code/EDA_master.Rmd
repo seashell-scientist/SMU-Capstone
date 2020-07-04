@@ -261,7 +261,7 @@ results <- data.frame(Product_Type=integer(),
                       stringsAsFactors = FALSE)
 
 # loop through sample combinations
-for(i in 1:10) {
+for(i in 1:1) {
   sample_combinations1 = sample_combinations[i,]
   temp1 = inner_join(temp,sample_combinations1)
   product = sample_combinations1$Product
@@ -286,15 +286,15 @@ for(i in 1:10) {
   invisible(acf(temp1$STD_Cases[0:length(temp1$date)/2], main="ACF for 1st Half of Series"))
   invisible(acf(temp1$STD_Cases[(1+length(temp1$date)/2):length(temp1$date)], main="ACF for 2nd Half of Series"))
 
-  sink("file")
+  nulldev()
   ljung_10 = ljung.wge(temp1$STD_Cases,K=10)
-  sink()
+  while (!is.null(dev.list()))  dev.off()
   cat("The Ljung-Box test with K=10 has a p-value of",ljung_10$pval,".")
   results[i,"ljung_10"] = ljung_10$pval
   
-  sink("file")
+  nulldev()
   ljung_24 = ljung.wge(temp1$STD_Cases,K=24)
-  sink()
+  while (!is.null(dev.list()))  dev.off()
   cat("The Ljung-Box test with K=24 has a p-value of",ljung_24$pval,".")
   results[i,"ljung_24"] = ljung_24$pval
   
@@ -327,18 +327,23 @@ for(i in 1:10) {
   for(j in 2:12) {
     trainingSize = 60
     ASEHolder = numeric()
-    
+
     for( k in 1:(84-(trainingSize + j) + 1))
     {
       sink("file")
       model0_mean = mean(temp1$STD_Cases[k:(k+(trainingSize-1))])
       ASE = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + j - 1)] - model0_mean)^2)
-      ASEHolder[k] = ASE
+      ASEHolder[k] = (temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + j - 1)] - model0_mean)^2
       sink()
+      
+      if (j==12) {
+        assign(paste("EqualMeans_Results_",k,sep=""),(temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + j - 1)] - model0_mean)^2)
+      }
     }
     
     WindowedASE = mean(ASEHolder)
-    results[i,paste0("EqualMeans_",j,"_ASE")] = WindowedASE
+    results[i,paste0("EqualMeans_Results_",j,"_ASE")] = WindowedASE
+
   }
 
   #ARMA Model
@@ -355,6 +360,11 @@ for(i in 1:10) {
       ASE = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + j - 1)] - forecasts$f)^2)
       ASEHolder[k] = ASE
       sink()
+      
+      if (j==12) {
+        assign(paste("ARMA_Results_",k,sep=""),(temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + j - 1)] - forecasts$f)^2)
+      }
+
     }
     
     WindowedASE = mean(ASEHolder)
@@ -379,6 +389,10 @@ for(i in 1:10) {
       ASE = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + j - 1)] - forecasts$f)^2)
       ASEHolder[k] = ASE
       sink()
+      
+      if (j==12) {
+       assign(paste("ARIMA_Results_",k,sep=""),(temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + j - 1)] - forecasts$f)^2)
+      }
     }
     
     WindowedASE = mean(ASEHolder)
@@ -403,6 +417,10 @@ for(i in 1:10) {
       ASE = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + j - 1)] - forecasts$f)^2)
       ASEHolder[k] = ASE
       sink()
+      
+      if (j==12) {
+       assign(paste("ARIMAS_Results_",k,sep=""),(temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + j - 1)] - forecasts$f)^2)
+      }
     }
     
     WindowedASE = mean(ASEHolder)
@@ -410,6 +428,48 @@ for(i in 1:10) {
 
   }
   
+  #graph ASEs for each Model
+  EqualMeans_Results <- rbind(EqualMeans_Results_1,EqualMeans_Results_2,EqualMeans_Results_3,EqualMeans_Results_4,EqualMeans_Results_5,EqualMeans_Results_6,
+                              EqualMeans_Results_7,EqualMeans_Results_8,EqualMeans_Results_9,EqualMeans_Results_10,EqualMeans_Results_11,EqualMeans_Results_12,
+                              EqualMeans_Results_13)
+  
+  ARMA_Results <- rbind(ARMA_Results_1,ARMA_Results_2,ARMA_Results_3,ARMA_Results_4,ARMA_Results_5,ARMA_Results_6,ARMA_Results_7,ARMA_Results_8,
+                       ARMA_Results_9,ARMA_Results_10,ARMA_Results_11,ARMA_Results_12,ARMA_Results_13)
+
+  ARIMA_Results <- rbind(ARIMA_Results_1,ARIMA_Results_2,ARIMA_Results_3,ARIMA_Results_4,ARIMA_Results_5,ARIMA_Results_6,ARIMA_Results_7,ARIMA_Results_8,
+                         ARIMA_Results_9,ARIMA_Results_10,ARIMA_Results_11,ARIMA_Results_12,ARIMA_Results_13)
+      
+  ARIMAS_Results <- rbind(ARIMAS_Results_1,ARIMAS_Results_2,ARIMAS_Results_3,ARIMAS_Results_4,ARIMAS_Results_5,ARIMAS_Results_6,ARIMAS_Results_7,ARIMAS_Results_8,
+                          ARIMAS_Results_9,ARIMAS_Results_10,ARIMAS_Results_11,ARIMAS_Results_12,ARIMAS_Results_13)
+      
+  EqualMeans_Means <- colMeans(EqualMeans_Results)
+  ARMA_Means <- colMeans(ARMA_Results)
+  ARIMA_Means <- colMeans(ARIMA_Results)
+  ARIMAS_Means <- colMeans(ARIMAS_Results)
+  Combined_Means <- data.frame(EqualMeans_Means,ARMA_Means, ARIMA_Means, ARIMAS_Means)
+  Combined_Means$horizon <- as.numeric(row.names(Combined_Means))
+  
+  sink()
+  dev.off()
+  sink()
+  par(mfrow = c(1,1))
+  ggplot(data=Combined_Means, aes(horizon)) + 
+    geom_line(aes(y=EqualMeans_Means, color="Equal Means"),size=1.5) +
+    geom_line(aes(y=ARMA_Means, color="ARMA"),size=1.5) +
+    geom_line(aes(y=ARIMA_Means, color="ARIMA"),size=1.5) +
+    geom_line(aes(y=ARIMAS_Means, color="ARIMAS"),size=1.5) +
+    scale_color_manual(values = c(
+      'Equal Means' = '#58508d',
+      'ARMA' = '#bc5090',
+      'ARIMA' = '#ff6361',
+      'ARIMAS' = '#ffa600'
+    )) +
+    labs(color='Models') +
+    scale_x_continuous(breaks=seq(0,13,1)) +
+    ggtitle(paste("Model ASEs for ", product,"and Customer",customer)) +
+    xlab("Month Ahead Forecast") +
+    ylab("ASE") +
+    theme(panel.background = element_blank(), axis.line = element_line(colour = "black"), legend.title = element_blank())
 }
 
 formattable(results, align = c("l", rep("r", NCOL(table_a) - 1)))
