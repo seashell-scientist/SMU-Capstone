@@ -171,8 +171,15 @@ summary(y$Dollar_Sales)
 
 tswge doesn't seem to publish through rshiny?? alternatives??
 ```{r}
-acf(y$STD_Cases)
-spectrum(y$STD_Cases)
+#replacement for plotts.sample.wge()
+par(mfrow = c(2, 2))
+plot(y$STD_Cases, type = 'l', main = '')
+acf(y$STD_Cases, main = 'ACF')
+spectrum(y$STD_Cases, method = 'pgram', type = 'h')
+spectrum(y$STD_Cases, method = 'ar')
+```
+```{r}
+plotts.sample.wge(y$STD_Cases)
 ```
 
 ## Time Series EDA & Forecasting
