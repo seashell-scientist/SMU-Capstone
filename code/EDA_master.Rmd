@@ -170,42 +170,6 @@ str(temp)
 
 ```
 
-```{r sample1, eval=FALSE}
-#only one sample combination
-sample_combinations1 = sample_combinations[2,]
-temp1 = inner_join(temp,sample_combinations1)
-product = sample_combinations1$Product
-customer = sample_combinations1$Customer_ID
-product_type = sample_combinations1$Customer_ID
-
-plot.ts(temp1$STD_Cases, 
-        main=c(paste("Standard Case Sales of ", product), 
-               paste("for ",customer)),
-        xlab="Months",
-        ylab="Standard Cases")
-
-par(mfrow = c(2,2))
-invisible(acf(temp1$STD_Cases, main="ACF"))
-invisible(parzen.wge(temp1$STD_Cases))
-
-invisible(acf(temp1$STD_Cases[0:length(temp1$date)/2], main="ACF for 1st Half of Series"))
-invisible(acf(temp1$STD_Cases[(1+length(temp1$date)/2):length(temp1$date)], main="ACF for 2nd Half of Series"))
-
-aic = aic5.wge(temp1$STD_Cases,type="aic")
-aic
-
-for (i in 1:5){
-  if(aic[i,1] == 0 & aic[i,2] == 0){
-    print("One of the top 5 models using BIC was an ARMA(0,0), indicating this series may be white noise.")
-  }
-  
-}
-test <- ts(temp1$STD_Cases[1:60])
-model1 = invisible(aic.wge(test,type="aic"))
-model1_est = invisible(est.arma.wge(test,p=model1$p,q=model1$q))
-fore.arma.wge(test,phi = .888408, theta = .7637687, n.ahead = 9,plot=FALSE)
-```
-
 ```{r loop}
 results <- data.frame(Product_Type=integer(),
                       Product=character(),
@@ -261,7 +225,7 @@ results <- data.frame(Product_Type=integer(),
                       stringsAsFactors = FALSE)
 
 # loop through sample combinations
-for(i in 1:1) {
+for(i in 1:10) {
   sample_combinations1 = sample_combinations[i,]
   temp1 = inner_join(temp,sample_combinations1)
   product = sample_combinations1$Product
@@ -285,16 +249,16 @@ for(i in 1:1) {
 
   invisible(acf(temp1$STD_Cases[0:length(temp1$date)/2], main="ACF for 1st Half of Series"))
   invisible(acf(temp1$STD_Cases[(1+length(temp1$date)/2):length(temp1$date)], main="ACF for 2nd Half of Series"))
-
-  nulldev()
+  
+  sink("file")
   ljung_10 = ljung.wge(temp1$STD_Cases,K=10)
-  while (!is.null(dev.list()))  dev.off()
+  sink()
   cat("The Ljung-Box test with K=10 has a p-value of",ljung_10$pval,".")
   results[i,"ljung_10"] = ljung_10$pval
   
-  nulldev()
+  sink("file")
   ljung_24 = ljung.wge(temp1$STD_Cases,K=24)
-  while (!is.null(dev.list()))  dev.off()
+  sink()
   cat("The Ljung-Box test with K=24 has a p-value of",ljung_24$pval,".")
   results[i,"ljung_24"] = ljung_24$pval
   
@@ -316,13 +280,13 @@ for(i in 1:1) {
   aic = invisible(aic5.wge(temp1$STD_Cases,type="bic"))
   sink()
   
- for (row in 1:nrow(aic)) {
+  for (row in 1:nrow(aic)) {
     if(aic[row,1] == 0 & aic[row,2] == 0){
       print("One of the top 5 models using BIC was an ARMA(0,0), indicating this series may be white noise.")
       results[i,"top_5_bic"] = "white noise"
     }
- }
-
+  }
+  
   #Equal Means Model
   for(j in 2:12) {
     trainingSize = 60
@@ -342,7 +306,7 @@ for(i in 1:1) {
     }
     
     WindowedASE = mean(ASEHolder)
-    results[i,paste0("EqualMeans_Results_",j,"_ASE")] = WindowedASE
+    results[i,paste0("EqualMeans_",j,"_ASE")] = WindowedASE
 
   }
 
@@ -449,11 +413,8 @@ for(i in 1:1) {
   Combined_Means <- data.frame(EqualMeans_Means,ARMA_Means, ARIMA_Means, ARIMAS_Means)
   Combined_Means$horizon <- as.numeric(row.names(Combined_Means))
   
-  sink()
-  dev.off()
-  sink()
-  par(mfrow = c(1,1))
-  ggplot(data=Combined_Means, aes(horizon)) + 
+
+  g <- ggplot(data=Combined_Means, aes(horizon)) +
     geom_line(aes(y=EqualMeans_Means, color="Equal Means"),size=1.5) +
     geom_line(aes(y=ARMA_Means, color="ARMA"),size=1.5) +
     geom_line(aes(y=ARIMA_Means, color="ARIMA"),size=1.5) +
@@ -470,7 +431,10 @@ for(i in 1:1) {
     xlab("Month Ahead Forecast") +
     ylab("ASE") +
     theme(panel.background = element_blank(), axis.line = element_line(colour = "black"), legend.title = element_blank())
+  
+  print(g)
 }
 
 formattable(results, align = c("l", rep("r", NCOL(table_a) - 1)))
+
 ```

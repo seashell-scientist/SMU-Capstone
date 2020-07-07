@@ -39,53 +39,53 @@ Jenna Ford, Christian Nava and Jonathan Tan
 May 21, 2020
 
 ```{r}
-results <- data.frame(EM_ASE=double(),
-                      ARMA_ASE=double(),
-                      F_statistic=double(),
-                      stringsAsFactors = FALSE)
+F_statistic_holder = numeric()
+p_value_holder = numeric()
+df_model_holder = numeric()
+df_ARMA_holder = numeric()
 
-trainingSize = 60
-horizon = 2
-
-
-for(j in 1:1000) {
+for(j in 1:10000) {
   nulldev()
-  x = gen.arma.wge(84,phi=c(1.6,-.9),theta=.8)
+  x = gen.arma.wge(n=100)
   dev.off()
-  EM_ASEHolder = numeric()
-  ARMA_ASEHolder = numeric()
+
+  #Equal Means Model
+  sink("file")
+  model0_mean = mean(x)
+  EM_SSE = sum((x - model0_mean)^2)
+  sink()
   
-  for( k in 1:(84-(trainingSize + horizon) + 1))
-  {
-    #Equal Means Model
-    sink("file")
-    model0_mean = mean(x[k:(k+(trainingSize-1))])
-    EM_ASE = mean((x[(trainingSize+k):(trainingSize+ k + horizon - 1)] - model0_mean)^2)
-    EM_ASEHolder[k] = EM_ASE
-    sink()
-    
-    #ARMA Model
-    sink("file")
-    model1 = invisible(aic.wge(x[k:(k+(trainingSize-1))],type="aic"))
-    model1_est = invisible(est.arma.wge(x[k:(k+(trainingSize-1))],p=model1$p,q=model1$q))
-    forecasts = fore.aruma.wge(x[k:(k+(trainingSize-1))],phi = model1_est$phi, theta = model1_est$theta, s = 0, d = 0,n.ahead = horizon,plot=FALSE)
-    ARMA_ASE = mean((x[(trainingSize+k):(trainingSize+ k + horizon - 1)] - forecasts$f)^2)
-    ARMA_ASEHolder[k] = ARMA_ASE
-    sink()
-  }
+  #ARMA Model
+  sink("file")
+  model1 = invisible(aic.wge(x,type="aic"))
+  model1_est = invisible(est.arma.wge(x,p=model1$p,q=model1$q))
   
-  EM_WindowedASE = mean(EM_ASEHolder)
-  ARMA_WindowedASE = mean(ARMA_ASEHolder)
-  results[j,"EM_ASE"] = EM_WindowedASE
-  results[j,"ARMA_ASE"] = ARMA_WindowedASE
-  results[j,"F_statistic"] = EM_WindowedASE/ARMA_WindowedASE
+  ARMA_SSE = sum((model1_est$res)^2)
+  sink()
+ 
+  #ANOVA table
+  df_EQ = 60 - 1
+  df_ARMA = 59 - (model1$p + model1$q + 1)
+  df_model = df_EQ - df_ARMA
+  
+  SS_Model = EM_SSE - ARMA_SSE
+  MS_Model = SS_Model/df_model
+  MS_ARMA = ARMA_SSE/df_ARMA
+  F=MS_Model/MS_ARMA
+  p_value = pf(F,df_model,df_ARMA)
+  
+  F_statistic_holder[j] = F
+  p_value_holder[j] = p_value
+  df_model_holder[j] = df_model
+  df_ARMA_holder[j] = df_ARMA
+
 }
 
-ylim <- range(0,1)
-xlim <- range(0,8)
-x <- seq(0,8,0.01)
-d <- density(results$F_statistic)
-plot(d,xlim=xlim,ylim=ylim,main="F-Statistic Distribution for Equal Means/ARMA Rolling Window ASEs",xlab="")
-curve(df(x,22,22),add=T,col='blue')
-legend(5,1,legend=c("Equal Means/ARMA","F Distribution DF=22,22"),col=c("black","blue"),lty=1:1, cex=0.8)
+ylim <- range(0,1.5)
+xlim <- range(0,6)
+x <- seq(0,6,0.01)
+d <- density(F_statistic_holder)
+plot(d,xlim=xlim,ylim=ylim,main="F-Statistic Distribution for Equal Means/ARMA Residuals",xlab="")
+curve(df(x,2,57),add=T,col='blue')
+legend(4,1.5,legend=c("Equal Means/ARMA","F Distribution DF=2,57"),col=c("black","blue"),lty=1:1, cex=0.8)
 ```
