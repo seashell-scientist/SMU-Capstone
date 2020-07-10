@@ -169,6 +169,12 @@ summary(y$STD_Cases)
 summary(y$Dollar_Sales)
 ```
 
+```{r}
+#ordering dropdown boxes testing
+sort(x$Product)
+```
+
+
 tswge doesn't seem to publish through rshiny?? alternatives??
 ```{r}
 #replacement for plotts.sample.wge()
@@ -184,8 +190,150 @@ plotts.sample.wge(y$STD_Cases)
 
 #gganimate testing
 ```{r}
+#single ts
+library(gganimate)
+library(gifski)
 
+#add new column for year and month
+y$year <- substring(as.Date(y$date, '%m/%d/%Y'), 1, 4)
+y$month <- substring(as.Date(y$date, '%m/%d/%Y'), 6, 7)
+
+g1 <- ggplot(data = y, aes(x = Dollar_Sales, y = STD_Cases, color = year, size = Dollar_Sales)) +
+  geom_point(alpha = 0.7, stroke = 0)+
+  scale_size(range = c(1, 12), guide = 'none') +
+  labs(title = 'Standard Cases Sold Per Month', x = 'Month', y = 'Cases') +
+  scale_color_brewer(palette = 'Set2') 
+g1
+
+anim1 = g1 +
+  transition_time(as.Date(date, '%m/%d/%Y'))+
+  labs(subtitle = "Date: {frame_time}") +
+  shadow_wake(wake_length = 0.1)
+
+animate(anim1, height = 400, width = 700, fps = 30, duration = 10, end_pause = 120, res = 100, renderer = gifski_renderer())
+anim_save('test_anim2', path = 'D:/SMU/DS 6120 Capstone A')
+#hmm doesn't play everything at once
 ```
+
+```{r}
+#multiple ts testing
+#px <- vector()
+#for(i in sample_combinations$Customer_ID){
+#  print(i)
+#  px <- append(px, i)
+#  }
+px <- sample_combinations$Customer_ID[2]
+df2 <- df[which(df$Customer_ID == px), ]
+
+df2$year <- substring(as.Date(df2$date, '%m/%d/%Y'), 1, 4)
+df2$month <- substring(as.Date(df2$date, '%m/%d/%Y'), 6, 7)
+#as.Date(date, '%m/%d/%Y')
+g1 <- ggplot(data = df2, aes(x = as.Date(date, '%m/%d/%Y'), y = STD_Cases, color = Product_Type)) +
+  geom_point(alpha = 0.7, stroke = 0)+
+  scale_size(range = c(1, 12), guide = 'none') +
+  #scale_x_log10() +
+  labs(title = 'Standard Cases Sold Per Month', x = 'Dollar Sales', y = 'Cases') +
+  scale_color_brewer(palette = 'Set2') + 
+  theme(legend.position = 'none') 
+  
+g1
+
+anim1 = g1 +
+  transition_time(as.Date(date, '%m/%d/%Y'))+
+  labs(subtitle = "Date: {frame_time}") +
+  shadow_wake(wake_length = 0.1)
+
+animate(anim1, height = 400, width = 700, fps = 30, duration = 10, end_pause = 120, res = 100, renderer = gifski_renderer())
+anim_save('test_anim2', path = 'D:/SMU/DS 6120 Capstone A')
+#hmm doesn't play everything at once
+```
+
+# so that doesn't really work, still some issues when displaying  univariate time series
+
+#basic endpoint model fitting, forecast, and display for app
+```{r}
+aic5.wge(y$STD_Cases, p = 0:5, q = 0:5, type= 'aic')
+
+#the knockoff
+model_target = y$STD_Cases
+p_range = 0:5
+q_range = 0:5
+
+pqc <- expand.grid(p_range, q_range)
+aic_holder <- vector()
+p_holder <- vector()
+q_holder <- vector()
+
+for(i in seq(1, length(pqc$Var1), 1)) {
+  #print(pqc[i, ])
+  temp_model <- arima(model_target, order = c(pqc[i, 1], 0, pqc[i, 2]), method = "ML")
+  #aic_holder <- append(aic_holder, temp_model$aic) #base AIC with k = 2?
+  aic_holder <- append(aic_holder, AIC(temp_model, k = log(length(y$STD_Cases))))
+  p_holder <- append(p_holder, pqc[i, 1])
+  q_holder <- append(q_holder, pqc[i, 2])
+}
+
+aic_results <- data.frame(p = p_holder, q = q_holder, aic = aic_holder)
+aic_results <- aic_results[order(aic_results$aic), ]
+head(aic_results, 5)
+
+#significant difference in aic results from aic5.wge and AIC from base r, calculation differences? 
+```
+
+```{r}
+n_ahead = 2
+
+print('tswge arima estimation')
+a1 <- aic5.wge(y$STD_Cases, p = 0:5, q = 0:5, type= 'aic')
+m1 <- est.arma.wge(y$STD_Cases, p = a1[1, 1], q = a1[1, 2])
+#m1
+fore.aruma.wge(y$STD_Cases, phi = m1$phi, theta = m1$theta, d = 0, s = 0, n.ahead = n_ahead)
+```
+
+```{r}
+#print('base r arima estimation')
+model_target = y
+p_range = 0:5
+q_range = 0:5
+
+pqc <- expand.grid(p_range, q_range)
+aic_holder <- vector()
+p_holder <- vector()
+q_holder <- vector()
+
+for(i in seq(1, length(pqc$Var1), 1)) {
+  #print(pqc[i, ])
+  temp_model <- arima(model_target$STD_Cases, order = c(pqc[i, 1], 0, pqc[i, 2]), method = "ML")
+  #aic_holder <- append(aic_holder, temp_model$aic) #base AIC with k = 2?
+  aic_holder <- append(aic_holder, AIC(temp_model, k = log(length(model_target$STD_Cases))))
+  p_holder <- append(p_holder, pqc[i, 1])
+  q_holder <- append(q_holder, pqc[i, 2])
+}
+
+aic_results <- data.frame(p = p_holder, q = q_holder, aic = aic_holder)
+aic_results <- aic_results[order(aic_results$aic), ]
+
+m2 <- arima0(model_target$STD_Cases, order = c(aic_results$p[1], 0, aic_results$q[1]))
+m2
+pred2 <- predict(m2, n_ahead)
+f2 <- append(model_target$STD_Cases, as.vector(pred2$pred))
+d_labs <- append(rep('data', length(model_target$STD_Cases)), rep('predictions', length(pred2$pred)))
+time_labs <- append(as.Date(y$date, "%m/%d/%Y"), seq.Date(as.Date(model_target$date, "%m/%d/%Y")[length(model_target$date)], by = 'month', length.out = 3)[-1])
+time_labs <- sort(time_labs)
+ep2 <- data.frame(cases = f2, category = d_labs, date = time_labs)
+
+v2 <- ggplot(data = ep2) + 
+  geom_point(aes(x = date, y = cases, color = category))+
+  geom_line(aes(x = date, y = cases, color = category)) +
+  ggtitle(paste('model of ', y$Product[1]), subtitle = paste('ARIMA (', a1[1, 1], ',', 0, ',', a1[1, 2], ')'))
+
+v2
+```
+
+```{r}
+ep2
+```
+
 
 ```{r}
 #mlr testing
