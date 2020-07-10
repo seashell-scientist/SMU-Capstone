@@ -182,6 +182,29 @@ spectrum(y$STD_Cases, method = 'ar')
 plotts.sample.wge(y$STD_Cases)
 ```
 
+#gganimate testing
+```{r}
+
+```
+
+```{r}
+#mlr testing
+fit = lm(STD_Cases~as.Date(date, '%m/%d/%Y'), data = y)
+summary(fit)
+newdata = data.frame(month = seq.Date(as.Date('1/1/2020', '%m/%d/%Y'), by = 'month', length.out = 6))
+predict(fit, newdata = newdata)
+
+aic5.wge(fit$residuals) # AR(1)
+
+est1 = est.arma.wge(fit$residuals, p = 1)
+
+forecasts = fore.arma.wge(fit$residuals,phi = est1$phi,lastn = FALSE,n.ahead = 12)
+fors = preds + forecasts$f
+
+plot(fors,type = "l")
+```
+
+
 ## Time Series EDA & Forecasting
 ***
 
