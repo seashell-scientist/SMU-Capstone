@@ -62,6 +62,7 @@ df <- rbind(df_17_19,df_15_16,df_13_14)
 
 dim(df)
 ```
+### condensed data prep block
 ## Check for Missing Data
 ***
 Here we create a function to check for missing data.
@@ -80,37 +81,37 @@ check.for.missing.data <- function(data){
 table_a = check.for.missing.data(data=df)
 # display table with first column aligned left all others aligned right
 formattable(table_a, align = c("l", rep("r", NCOL(table_a) - 1)))
-```
+###```
 
 ## Keep Only Active Accounts
-***
+#***
 
-```{r filter}
+#```{r filter}
 invisible(df %>% filter(Account_Status != "Closed"))
-```
+#```
 
 ## Drop Variables
-***
+#***
 
-```{r drop}
+#```{r drop}
 drops <- c("Metrics","Year","Month","House","Account_Status","Beverage_Type","Fiscal_Year","Premise","Customer_Street_Address","Customer_City",
            "Customer_Zip_Code","Longitude_Customer","Latitude_Customer","Customer","Vendor","Brand_ID","Brand","Size","Product_ID","Chain","Category",
            "Product_Type_ID","Qty_Per_Case","Alcohol_Proof","X9L_Cases","Dollar_Sales_Per_Case","Dollar_Sales_Per_9L_Case")
 df = df[ , !(names(df) %in% drops)]
-```
+#```
 
 ## Variable Formatting
-***
+#***
 
-```{r formatting}
+#```{r formatting}
 df$Dollar_Sales = as.numeric(gsub('[$,]', '', df$Dollar_Sales))
 str(df)
-```
+#```
 
 ## Products
-***
+#***
 
-```{r products}
+#```{r products}
 product_type_group = df %>% group_by(Product_Type) %>% tally(sort=TRUE)
 dim(product_type_group)
 formattable(head(product_type_group), align = c("l", rep("r", NCOL(table_a) - 1)))
@@ -130,12 +131,12 @@ formattable(head(product_type_product_group), align = c("l", rep("r", NCOL(table
 all_group = df %>% group_by(Product_Type, Product, Customer_ID) %>% tally(sort=TRUE)
 dim(all_group)
 formattable(head(all_group), align = c("l", rep("r", NCOL(table_a) - 1)))
-```
+#```
 
 ## Put Combinations for Forecasting into a Dataframe and Choose 10 Sample Combinations
-***
+#***
 
-```{r combinations}
+#```{r combinations}
 # Create file with all possible combinations
 combinations0 = as.data.frame(df %>% group_by(Product_Type, Product, Customer_ID) %>% tally(sort=TRUE))
 combinations = combinations0 %>% filter(n >= 42)
@@ -157,6 +158,8 @@ ptest <- x$Product[1]
 
 z <- df[which(df$Customer_ID == ctest), ]
 y <- z[which(z$Product == ptest), ] #filter down to single product from single store
+y$date <- as.Date(y$date, "%m/%d/%Y")
+y <- y[order(y$date), ]
 
 nacounter <- which(y$STD_Cases == 0) %>% length() %>% sum()
  
@@ -169,85 +172,86 @@ summary(y$STD_Cases)
 summary(y$Dollar_Sales)
 ```
 
-```{r}
-#ordering dropdown boxes testing
-sort(x$Product)
-```
-
-
 tswge doesn't seem to publish through rshiny?? alternatives??
 ```{r}
 #replacement for plotts.sample.wge()
 par(mfrow = c(2, 2))
-plot(y$STD_Cases, type = 'l', main = '')
+plot(y$date, y$STD_Cases, type = 'l', main = '')
 acf(y$STD_Cases, main = 'ACF')
 spectrum(y$STD_Cases, method = 'pgram', type = 'h')
 spectrum(y$STD_Cases, method = 'ar')
 ```
+
+```{r}
+autoplot(ts(y$STD_Cases))
+```
+```{r}
+y[order(as.Date(y$date, "%m/%d/%Y")), ]
+```
+
 ```{r}
 plotts.sample.wge(y$STD_Cases)
 ```
 
 #gganimate testing
 ```{r}
-#single ts
-library(gganimate)
-library(gifski)
-
-#add new column for year and month
-y$year <- substring(as.Date(y$date, '%m/%d/%Y'), 1, 4)
-y$month <- substring(as.Date(y$date, '%m/%d/%Y'), 6, 7)
-
-g1 <- ggplot(data = y, aes(x = Dollar_Sales, y = STD_Cases, color = year, size = Dollar_Sales)) +
-  geom_point(alpha = 0.7, stroke = 0)+
-  scale_size(range = c(1, 12), guide = 'none') +
-  labs(title = 'Standard Cases Sold Per Month', x = 'Month', y = 'Cases') +
-  scale_color_brewer(palette = 'Set2') 
-g1
-
-anim1 = g1 +
-  transition_time(as.Date(date, '%m/%d/%Y'))+
-  labs(subtitle = "Date: {frame_time}") +
-  shadow_wake(wake_length = 0.1)
-
-animate(anim1, height = 400, width = 700, fps = 30, duration = 10, end_pause = 120, res = 100, renderer = gifski_renderer())
-anim_save('test_anim2', path = 'D:/SMU/DS 6120 Capstone A')
-#hmm doesn't play everything at once
+# #single ts
+# library(gganimate)
+# library(gifski)
+# 
+# #add new column for year and month
+# y$year <- substring(as.Date(y$date, '%m/%d/%Y'), 1, 4)
+# y$month <- substring(as.Date(y$date, '%m/%d/%Y'), 6, 7)
+# 
+# g1 <- ggplot(data = y, aes(x = Dollar_Sales, y = STD_Cases, color = year, size = Dollar_Sales)) +
+#   geom_point(alpha = 0.7, stroke = 0)+
+#   scale_size(range = c(1, 12), guide = 'none') +
+#   labs(title = 'Standard Cases Sold Per Month', x = 'Month', y = 'Cases') +
+#   scale_color_brewer(palette = 'Set2') 
+# g1
+# 
+# anim1 = g1 +
+#   transition_time(as.Date(date, '%m/%d/%Y'))+
+#   labs(subtitle = "Date: {frame_time}") +
+#   shadow_wake(wake_length = 0.1)
+# 
+# animate(anim1, height = 400, width = 700, fps = 30, duration = 10, end_pause = 120, res = 100, renderer = gifski_renderer())
+# anim_save('test_anim2', path = 'D:/SMU/DS 6120 Capstone A')
+# #hmm doesn't play everything at once
 ```
 
 ```{r}
-#multiple ts testing
-#px <- vector()
-#for(i in sample_combinations$Customer_ID){
-#  print(i)
-#  px <- append(px, i)
-#  }
-px <- sample_combinations$Customer_ID[2]
-df2 <- df[which(df$Customer_ID == px), ]
-
-df2$year <- substring(as.Date(df2$date, '%m/%d/%Y'), 1, 4)
-df2$month <- substring(as.Date(df2$date, '%m/%d/%Y'), 6, 7)
-#as.Date(date, '%m/%d/%Y')
-g1 <- ggplot(data = df2, aes(x = as.Date(date, '%m/%d/%Y'), y = STD_Cases, color = Product_Type)) +
-  geom_point(alpha = 0.7, stroke = 0)+
-  scale_size(range = c(1, 12), guide = 'none') +
-  #scale_x_log10() +
-  labs(title = 'Standard Cases Sold Per Month', x = 'Dollar Sales', y = 'Cases') +
-  scale_color_brewer(palette = 'Set2') + 
-  theme(legend.position = 'none') 
-  
-g1
-
-anim1 = g1 +
-  transition_time(as.Date(date, '%m/%d/%Y'))+
-  labs(subtitle = "Date: {frame_time}") +
-  shadow_wake(wake_length = 0.1)
-
-animate(anim1, height = 400, width = 700, fps = 30, duration = 10, end_pause = 120, res = 100, renderer = gifski_renderer())
-anim_save('test_anim2', path = 'D:/SMU/DS 6120 Capstone A')
-#hmm doesn't play everything at once
+# #multiple ts testing
+# #px <- vector()
+# #for(i in sample_combinations$Customer_ID){
+# #  print(i)
+# #  px <- append(px, i)
+# #  }
+# px <- sample_combinations$Customer_ID[2]
+# df2 <- df[which(df$Customer_ID == px), ]
+# 
+# df2$year <- substring(as.Date(df2$date, '%m/%d/%Y'), 1, 4)
+# df2$month <- substring(as.Date(df2$date, '%m/%d/%Y'), 6, 7)
+# #as.Date(date, '%m/%d/%Y')
+# g1 <- ggplot(data = df2, aes(x = as.Date(date, '%m/%d/%Y'), y = STD_Cases, color = Product_Type)) +
+#   geom_point(alpha = 0.7, stroke = 0)+
+#   scale_size(range = c(1, 12), guide = 'none') +
+#   #scale_x_log10() +
+#   labs(title = 'Standard Cases Sold Per Month', x = 'Dollar Sales', y = 'Cases') +
+#   scale_color_brewer(palette = 'Set2') + 
+#   theme(legend.position = 'none') 
+#   
+# g1
+# 
+# anim1 = g1 +
+#   transition_time(as.Date(date, '%m/%d/%Y'))+
+#   labs(subtitle = "Date: {frame_time}") +
+#   shadow_wake(wake_length = 0.1)
+# 
+# animate(anim1, height = 400, width = 700, fps = 30, duration = 10, end_pause = 120, res = 100, renderer = gifski_renderer())
+# anim_save('test_anim2', path = 'D:/SMU/DS 6120 Capstone A')
+# #hmm doesn't play everything at once
 ```
-
 # so that doesn't really work, still some issues when displaying  univariate time series
 
 #basic endpoint model fitting, forecast, and display for app
@@ -318,9 +322,9 @@ m2
 pred2 <- predict(m2, n_ahead)
 f2 <- append(model_target$STD_Cases, as.vector(pred2$pred))
 d_labs <- append(rep('data', length(model_target$STD_Cases)), rep('predictions', length(pred2$pred)))
-time_labs <- append(as.Date(y$date, "%m/%d/%Y"), seq.Date(as.Date(model_target$date, "%m/%d/%Y")[length(model_target$date)], by = 'month', length.out = 3)[-1])
+time_labs <- append(y$date, seq.Date(model_target$date[length(model_target$date)], by = 'month', length.out = n_ahead+1)[-1])
 time_labs <- sort(time_labs)
-ep2 <- data.frame(cases = f2, category = d_labs, date = time_labs)
+ep2 <- data.frame("cases" = f2, "category" = d_labs, "date" = time_labs)
 
 v2 <- ggplot(data = ep2) + 
   geom_point(aes(x = date, y = cases, color = category))+
@@ -350,6 +354,35 @@ forecasts = fore.arma.wge(fit$residuals,phi = est1$phi,lastn = FALSE,n.ahead = 1
 fors = preds + forecasts$f
 
 plot(fors,type = "l")
+```
+
+
+```{r}
+#random forest bag of word approach testing
+library(ranger)
+library(randomForest)
+library(caret)
+
+n_ahead <- 6
+
+y$date <- as.Date(y$date, '%m/%d/%Y')
+target_df = y
+tlen = length(target_df$STD_Cases)
+
+#test against last year/n periods data
+sample_train <- target_df[1:(tlen-n_ahead), ]
+sample_test <- target_df[(tlen-n_ahead +1):tlen, ]
+rf1 <- randomForest(STD_Cases ~., data = sample_train)
+
+pred = predict(rf1, newdata = sample_test)
+
+rf_ase <- mean((sample_test$STD_Cases - pred)^2)
+
+ggplot() + 
+  geom_line(aes(x = sort(y$date), y = y$STD_Cases), col = 'black') +
+  geom_line(aes(x = sort(y$date), y = c(rep(NA, (tlen-n_ahead)), array(pred))), col = 'red') +
+  ggtitle(paste('Random Forest', n_ahead, 'Month ASE: ', rf_ase))
+  
 ```
 
 
