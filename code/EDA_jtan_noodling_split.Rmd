@@ -309,7 +309,15 @@ y <- z[which(z$Product == ptest), ] #filter down to single product from single s
 y$date <- as.Date(y$date, "%m/%d/%Y")
 y <- y[order(y$date), ]
 
+### IMPORTANT FOR FILLING IN POTENTIALLY MISSING DATES !!! ###
+full_date_sequence <- data.frame('date' = (seq(y$date[1], y$date[length(y$date)], by = 'month') ) ) %>% setDT()
+intake_data <- y %>% setDT()
 
+full_date_frame <- intake_data[full_date_sequence, on = 'date'] 
+full_date_frame[is.na(full_date_frame)] <- 0
+
+y <- full_date_frame
+### IMPORTANT FOR FILLING IN POTENTIALLY MISSING DATES !!! ###
 
 n_ahead = 3
 
@@ -452,11 +460,177 @@ ggplot() +
   ggtitle(paste('Random Forest', n_ahead, 'Month ASE: ', rf_ase))
   
 ```
+```{r}
+#rolling ase RF?
+
+```
 
 ```{r}
 #nn testing
 #using package nnfor
+library(nnfor)
+
+
+n_ahead <- 3
+
+y$date <- as.Date(y$date, '%m/%d/%Y')
+target_df = y
+
+tlen = length(target_df$STD_Cases)
+#test against last year/n periods data
+sample_train <- target_df[1:(tlen-n_ahead), ]
+sample_test <- target_df[(tlen-n_ahead +1):tlen, ]
+
+ts1<- as.ts(sample_train$STD_Cases)
+fit1 <- mlp(ts1, reps = 25, hd = c(10, 5)) #still completely arbitrary
+#print(fit1)
+plot(fit1)
+
+mlp_pred <- forecast(fit1, h = n_ahead)
+mlp_ase <- mean((sample_test$STD_Cases - mlp_pred$mean)^2)
+
+ggplot() + 
+  geom_line(aes(x = sort(y$date), y = y$STD_Cases), col = 'black') +
+  geom_line(aes(x = sort(y$date), y = c(rep(NA, (tlen-n_ahead)), mlp_pred$mean)), col = 'red') +
+  ggtitle(paste('MLP', n_ahead, 'Month ASE: ', mlp_ase))
 ```
+
+```{r}
+#ugghh try to functionalize it
+#functionalize the model fit, accept ts/vector object, length ahead, reps, hidden layers in vector form,
+#internal: split TS into test/train by the specified length ahead, fit model to train, predict n_ahead, compare to test to get ASE
+#output: print(mlp object), plot(mlp object), ggplot the TS, predictions in different color, output the predictions as a separate vector? Optional plot showing with display = TRUE 
+
+#assuming that y is a dataframe of the narrowed query data
+target_df <- y
+
+#nn complete
+nnc <- function(tvector, n_ahead, reps, hd_vector, display){
+  #date_line <- as.Date(target_df$date, '%m/%d/%Y') #add date back in after it works
+  tlen <- length(tvector)
+  sample_train <- target_df[1:(tlen-n_ahead), ]
+  sample_test <- target_df[(tlen-n_ahead +1):tlen, ]
+  
+  ts_train<- as.ts(sample_train$STD_Cases)
+  fit_mlp <- mlp(ts_train, reps = reps, hd = hd_vector)
+  
+  mlp_pred <- forecast(fit_mlp, h = n_ahead)
+  mlp_ase <- mean((sample_test$STD_Cases - mlp_pred$mean)^2)
+  
+  r1 <- ggplot() + 
+    geom_line(aes(x = sort(target_df$date), y = target_df$STD_Cases), col = 'black') +
+    geom_line(aes(x = sort(target_df$date), y = c(rep(NA, (tlen-n_ahead)), mlp_pred$mean)), col = 'red') +
+    ggtitle(paste('MLP', n_ahead, 'Month ASE: ', mlp_ase), subtitle =paste(target_df$Product[1], 'Purchases By Cust ID: ', target_df$Customer_ID[1]))
+  
+  if(display == TRUE){
+    print(fit_mlp)
+    plot(fit_mlp)
+    show(r1)}
+  
+  return(list(mlp_pred$mean, mlp_ase))
+}
+```
+
+```{r}
+#test function
+x <- nnc(y$STD_Cases, 3, 25, c(5, 10, 15, 5), TRUE)
+x
+#returns object as list with predictions and ase
+```
+
+```{r}
+#rolling ase jenna style?? might be computationally expensive to recalc the model for each window? time later
+#just need to switch around the input data and store each ase
+#as far as i understand it, we are starting at 12 months, then forecasting from 12 months ago 2, 3, 4, 5, 6, ect months out, then compositing those ase as rolling ase? but retraining on every single new dataset??
+
+repetitions = 25
+layer_structure = c(24, 12, 6)
+
+#structure to start12month rolling ase, can i just pass along 12/11 different n_aheads? 
+windows <- seq(2, 12, 1) #list of n_aheads
+nn_ase_holder <- vector()
+nn_pred_holder <- vector()
+
+for(i in windows){
+  temp_results <- nnc(y$STD_Cases, i, repetitions, layer_structure, display = FALSE)
+  nn_ase_holder <- append(nn_ase_holder, temp_results[[2]]) #double square brackets because list of lists
+  nn_pred_holder <- append(nn_pred_holder, temp_results[[1]])
+}
+
+paste('mean 12 month Rolling ASE (KINDA) = ', mean(nn_ase_holder))
+#needagraphic ?
+```
+
+```{r}
+#actual rolling ase
+#take the same fitted model and gauge its effectiveness across multiple time spans of the same time series
+
+reps = 25
+hd_vector = c(5, 5, 5) #completely arbitrary as of now, look up common practices for this later
+n_ahead = 6
+
+target_df <- y
+target_vector <- target_df$STD_Cases
+tlen <- length(target_vector)
+win_train_size = 6
+win_test_size = n_ahead
+step_size = 6
+
+#initialize start points for each window
+start_points <- seq(1, tlen, step_size)
+
+win_ase_holder = vector()
+win_pred_holder <- matrix(nrow = length(start_points), ncol = n_ahead) #empty matrix to hold predictions for plotting later
+m_indexer = 1
+for(i in start_points){
+  #print(c(i, i+win_train_size, i+win_train_size+1, i+win_train_size+win_test_size))
+  win_train <- target_df[i:(i+win_train_size), ]
+  win_test <- target_df[(i+win_train_size+1):(i+win_train_size+win_test_size), ]
+  
+  win_mlp <- mlp(as.ts(sample_train$STD_Cases), reps = reps, hd = hd_vector)
+  win_pred<- forecast(win_mlp, h = n_ahead)
+  win_ase <- mean((win_test$STD_Cases-win_pred$mean)^2)
+  
+  win_pred_holder[m_indexer, ] <- win_pred$mean
+  m_indexer = m_indexer + 1 #iterate along matrix rows to fill with predictions
+  win_ase_holder <- append(win_ase_holder, win_ase)
+}
+
+#trim by invalid ase measures to remove out of bounds predictions
+valid_bounds <- (dim(win_pred_holder)[1]-sum(is.na(win_ase_holder))) #should return the row limit of data that was still within the bounds of the data without nas
+win_pred_holder <- win_pred_holder[1:valid_bounds, ]
+win_ase_holder <- win_ase_holder[1:valid_bounds]
+
+paste('NN mean rolling ASE :', mean(win_ase_holder))
+
+#cool graph time
+#arrange in dataframe with dates, data, and labels?? 
+viz_frame = data.frame(y$date, y$STD_Cases, rep('original', length(y$date)))
+names(viz_frame) <- c('date', 'cases', 'data_type')
+#append additional generated frames here with datatype labels for easy ggplotting?
+
+#generate datasets with filler nas, bind to dataframe with full dates and labels, rbind to vizframe?
+wincount = 1
+for(i in start_points[1:valid_bounds]){
+  #print(c(i, i+win_train_size, i+win_train_size+1, i+win_train_size+win_test_size))
+  space_before <- i+win_train_size
+  space_after <- length(target_df$STD_Cases) - (i+win_train_size+win_test_size)
+  spaced_preds <- c(rep(NA, space_before), win_pred_holder[wincount, ], rep(NA, space_after))
+  
+  #print(spaced_preds)
+  #create dataframe with each spaced preds that corresponds to date and label it in the third column
+  df_temp <- data.frame('date' = target_df$date, 'cases' = spaced_preds, 'data_type' = rep(paste('window ', wincount, ' predictions'), length(target_df$date)))
+  wincount = wincount + 1
+  viz_frame <- rbind(viz_frame, df_temp)
+}
+#there we go graph by color is easier now
+nn_graph <- ggplot(data = viz_frame) +
+  geom_line(aes(x = date, y = cases, color = data_type)) +
+  ggtitle('MLP Rolling ASE', subtitle = paste('NN mean rolling ASE :', mean(win_ase_holder)))+
+  xlab('Date') + ylab('Cases purchased')
+show(nn_graph)
+```
+
 
 ## Time Series EDA & Forecasting
 ***
