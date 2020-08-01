@@ -462,6 +462,19 @@ ggplot() +
 ```
 ```{r}
 #rolling ase RF?
+n_ahead <- 24
+
+y$date <- as.Date(y$date, '%m/%d/%Y')
+target_df = y
+sample_train <- target_df[1:(tlen-n_ahead), ]
+sample_test <- target_df[(tlen-n_ahead +1):tlen, ]
+rf1 <- randomForest(STD_Cases ~., data = sample_train, na.action = na.exclude)
+pred = predict(rf1, newdata = sample_test)
+rf_ase <- mean((sample_test$STD_Cases - pred)^2)
+ggplot() + 
+  geom_line(aes(x = sort(y$date), y = y$STD_Cases), col = 'black') +
+  geom_line(aes(x = sort(y$date), y = c(rep(NA, (tlen-n_ahead)), array(pred))), col = 'red') +
+  ggtitle(paste('Random Forest', n_ahead, 'Month ASE: ', rf_ase))
 
 ```
 
@@ -565,29 +578,35 @@ paste('mean 12 month Rolling ASE (KINDA) = ', mean(nn_ase_holder))
 #actual rolling ase
 #take the same fitted model and gauge its effectiveness across multiple time spans of the same time series
 
-reps = 25
+reps = 10
 hd_vector = c(5, 5, 5) #completely arbitrary as of now, look up common practices for this later
 n_ahead = 6
 
 target_df <- y
 target_vector <- target_df$STD_Cases
 tlen <- length(target_vector)
-win_train_size = 6
+win_train_size = 8
 win_test_size = n_ahead
 step_size = 6
+show_fit = TRUE #t/f for fit output
 
 #initialize start points for each window
 start_points <- seq(1, tlen, step_size)
-
+step_sequence_truncated = start_points[1:(length(start_points)-5)]
 win_ase_holder = vector()
 win_pred_holder <- matrix(nrow = length(start_points), ncol = n_ahead) #empty matrix to hold predictions for plotting later
 m_indexer = 1
-for(i in start_points){
+for(i in step_sequence_truncated){ #point generation is a bit wonky, cut off the last iteration to avoid feeding in NAS
   #print(c(i, i+win_train_size, i+win_train_size+1, i+win_train_size+win_test_size))
   win_train <- target_df[i:(i+win_train_size), ]
   win_test <- target_df[(i+win_train_size+1):(i+win_train_size+win_test_size), ]
   
-  win_mlp <- mlp(as.ts(sample_train$STD_Cases), reps = reps, hd = hd_vector)
+  win_mlp <- mlp(as.ts(win_train$STD_Cases), reps = reps, hd = hd_vector, outplot = show_fit) 
+  
+  
+  #why doesn't it generalize on win_train????? 
+  
+  
   win_pred<- forecast(win_mlp, h = n_ahead)
   win_ase <- mean((win_test$STD_Cases-win_pred$mean)^2)
   
@@ -611,7 +630,8 @@ names(viz_frame) <- c('date', 'cases', 'data_type')
 
 #generate datasets with filler nas, bind to dataframe with full dates and labels, rbind to vizframe?
 wincount = 1
-for(i in start_points[1:valid_bounds]){
+#for(i in start_points[1:valid_bounds]){
+for(i in step_sequence_truncated){
   #print(c(i, i+win_train_size, i+win_train_size+1, i+win_train_size+win_test_size))
   space_before <- i+win_train_size
   space_after <- length(target_df$STD_Cases) - (i+win_train_size+win_test_size)
@@ -630,7 +650,9 @@ nn_graph <- ggplot(data = viz_frame) +
   xlab('Date') + ylab('Cases purchased')
 show(nn_graph)
 ```
-
+```{r}
+viz_frame
+```
 
 ## Time Series EDA & Forecasting
 ***
