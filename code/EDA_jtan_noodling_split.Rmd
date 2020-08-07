@@ -495,7 +495,7 @@ sample_train <- target_df[1:(tlen-n_ahead), ]
 sample_test <- target_df[(tlen-n_ahead +1):tlen, ]
 
 ts1<- as.ts(sample_train$STD_Cases)
-fit1 <- mlp(ts1, reps = 25, hd = c(10, 5)) #still completely arbitrary
+fit1 <- mlp(ts1, reps = 25, hd = c(5, 5, 5)) #still completely arbitrary
 #print(fit1)
 plot(fit1)
 
