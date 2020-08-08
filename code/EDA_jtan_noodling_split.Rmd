@@ -62,7 +62,6 @@ df <- rbind(df_17_19,df_15_16,df_13_14)
 
 dim(df)
 ```
-### condensed data prep block
 ## Check for Missing Data
 ***
 Here we create a function to check for missing data.
@@ -81,37 +80,37 @@ check.for.missing.data <- function(data){
 table_a = check.for.missing.data(data=df)
 # display table with first column aligned left all others aligned right
 formattable(table_a, align = c("l", rep("r", NCOL(table_a) - 1)))
-###```
+```
 
 ## Keep Only Active Accounts
-#***
+***
 
-#```{r filter}
+```{r filter}
 invisible(df %>% filter(Account_Status != "Closed"))
-#```
+```
 
 ## Drop Variables
-#***
+***
 
-#```{r drop}
+```{r drop}
 drops <- c("Metrics","Year","Month","House","Account_Status","Beverage_Type","Fiscal_Year","Premise","Customer_Street_Address","Customer_City",
            "Customer_Zip_Code","Longitude_Customer","Latitude_Customer","Customer","Vendor","Brand_ID","Brand","Size","Product_ID","Chain","Category",
            "Product_Type_ID","Qty_Per_Case","Alcohol_Proof","X9L_Cases","Dollar_Sales_Per_Case","Dollar_Sales_Per_9L_Case")
 df = df[ , !(names(df) %in% drops)]
-#```
+```
 
 ## Variable Formatting
-#***
+***
 
-#```{r formatting}
+```{r formatting}
 df$Dollar_Sales = as.numeric(gsub('[$,]', '', df$Dollar_Sales))
 str(df)
-#```
+```
 
 ## Products
-#***
+***
 
-#```{r products}
+```{r products}
 product_type_group = df %>% group_by(Product_Type) %>% tally(sort=TRUE)
 dim(product_type_group)
 formattable(head(product_type_group), align = c("l", rep("r", NCOL(table_a) - 1)))
@@ -131,12 +130,12 @@ formattable(head(product_type_product_group), align = c("l", rep("r", NCOL(table
 all_group = df %>% group_by(Product_Type, Product, Customer_ID) %>% tally(sort=TRUE)
 dim(all_group)
 formattable(head(all_group), align = c("l", rep("r", NCOL(table_a) - 1)))
-#```
+```
 
 ## Put Combinations for Forecasting into a Dataframe and Choose 10 Sample Combinations
-#***
+***
 
-#```{r combinations}
+```{r combinations}
 # Create file with all possible combinations
 combinations0 = as.data.frame(df %>% group_by(Product_Type, Product, Customer_ID) %>% tally(sort=TRUE))
 combinations = combinations0 %>% filter(n >= 42)
@@ -158,8 +157,6 @@ ptest <- x$Product[1]
 
 z <- df[which(df$Customer_ID == ctest), ]
 y <- z[which(z$Product == ptest), ] #filter down to single product from single store
-y$date <- as.Date(y$date, "%m/%d/%Y")
-y <- y[order(y$date), ]
 
 nacounter <- which(y$STD_Cases == 0) %>% length() %>% sum()
  
@@ -172,86 +169,85 @@ summary(y$STD_Cases)
 summary(y$Dollar_Sales)
 ```
 
+```{r}
+#ordering dropdown boxes testing
+sort(x$Product)
+```
+
+
 tswge doesn't seem to publish through rshiny?? alternatives??
 ```{r}
 #replacement for plotts.sample.wge()
 par(mfrow = c(2, 2))
-plot(y$date, y$STD_Cases, type = 'l', main = '')
+plot(y$STD_Cases, type = 'l', main = '')
 acf(y$STD_Cases, main = 'ACF')
 spectrum(y$STD_Cases, method = 'pgram', type = 'h')
 spectrum(y$STD_Cases, method = 'ar')
 ```
-
-```{r}
-autoplot(ts(y$STD_Cases))
-```
-```{r}
-y[order(as.Date(y$date, "%m/%d/%Y")), ]
-```
-
 ```{r}
 plotts.sample.wge(y$STD_Cases)
 ```
 
 #gganimate testing
 ```{r}
-# #single ts
-# library(gganimate)
-# library(gifski)
-# 
-# #add new column for year and month
-# y$year <- substring(as.Date(y$date, '%m/%d/%Y'), 1, 4)
-# y$month <- substring(as.Date(y$date, '%m/%d/%Y'), 6, 7)
-# 
-# g1 <- ggplot(data = y, aes(x = Dollar_Sales, y = STD_Cases, color = year, size = Dollar_Sales)) +
-#   geom_point(alpha = 0.7, stroke = 0)+
-#   scale_size(range = c(1, 12), guide = 'none') +
-#   labs(title = 'Standard Cases Sold Per Month', x = 'Month', y = 'Cases') +
-#   scale_color_brewer(palette = 'Set2') 
-# g1
-# 
-# anim1 = g1 +
-#   transition_time(as.Date(date, '%m/%d/%Y'))+
-#   labs(subtitle = "Date: {frame_time}") +
-#   shadow_wake(wake_length = 0.1)
-# 
-# animate(anim1, height = 400, width = 700, fps = 30, duration = 10, end_pause = 120, res = 100, renderer = gifski_renderer())
-# anim_save('test_anim2', path = 'D:/SMU/DS 6120 Capstone A')
-# #hmm doesn't play everything at once
+#single ts
+library(gganimate)
+library(gifski)
+
+#add new column for year and month
+y$year <- substring(as.Date(y$date, '%m/%d/%Y'), 1, 4)
+y$month <- substring(as.Date(y$date, '%m/%d/%Y'), 6, 7)
+
+g1 <- ggplot(data = y, aes(x = Dollar_Sales, y = STD_Cases, color = year, size = Dollar_Sales)) +
+  geom_point(alpha = 0.7, stroke = 0)+
+  scale_size(range = c(1, 12), guide = 'none') +
+  labs(title = 'Standard Cases Sold Per Month', x = 'Month', y = 'Cases') +
+  scale_color_brewer(palette = 'Set2') 
+g1
+
+anim1 = g1 +
+  transition_time(as.Date(date, '%m/%d/%Y'))+
+  labs(subtitle = "Date: {frame_time}") +
+  shadow_wake(wake_length = 0.1)
+
+animate(anim1, height = 400, width = 700, fps = 30, duration = 10, end_pause = 120, res = 100, renderer = gifski_renderer())
+anim_save('test_anim2', path = 'D:/SMU/DS 6120 Capstone A')
+#hmm doesn't play everything at once
 ```
 
 ```{r}
-# #multiple ts testing
-# #px <- vector()
-# #for(i in sample_combinations$Customer_ID){
-# #  print(i)
-# #  px <- append(px, i)
-# #  }
-# px <- sample_combinations$Customer_ID[2]
-# df2 <- df[which(df$Customer_ID == px), ]
-# 
-# df2$year <- substring(as.Date(df2$date, '%m/%d/%Y'), 1, 4)
-# df2$month <- substring(as.Date(df2$date, '%m/%d/%Y'), 6, 7)
-# #as.Date(date, '%m/%d/%Y')
-# g1 <- ggplot(data = df2, aes(x = as.Date(date, '%m/%d/%Y'), y = STD_Cases, color = Product_Type)) +
-#   geom_point(alpha = 0.7, stroke = 0)+
-#   scale_size(range = c(1, 12), guide = 'none') +
-#   #scale_x_log10() +
-#   labs(title = 'Standard Cases Sold Per Month', x = 'Dollar Sales', y = 'Cases') +
-#   scale_color_brewer(palette = 'Set2') + 
-#   theme(legend.position = 'none') 
-#   
-# g1
-# 
-# anim1 = g1 +
-#   transition_time(as.Date(date, '%m/%d/%Y'))+
-#   labs(subtitle = "Date: {frame_time}") +
-#   shadow_wake(wake_length = 0.1)
-# 
-# animate(anim1, height = 400, width = 700, fps = 30, duration = 10, end_pause = 120, res = 100, renderer = gifski_renderer())
-# anim_save('test_anim2', path = 'D:/SMU/DS 6120 Capstone A')
-# #hmm doesn't play everything at once
+#multiple ts testing
+#px <- vector()
+#for(i in sample_combinations$Customer_ID){
+#  print(i)
+#  px <- append(px, i)
+#  }
+px <- sample_combinations$Customer_ID[2]
+df2 <- df[which(df$Customer_ID == px), ]
+
+df2$year <- substring(as.Date(df2$date, '%m/%d/%Y'), 1, 4)
+df2$month <- substring(as.Date(df2$date, '%m/%d/%Y'), 6, 7)
+#as.Date(date, '%m/%d/%Y')
+g1 <- ggplot(data = df2, aes(x = as.Date(date, '%m/%d/%Y'), y = STD_Cases, color = Product_Type)) +
+  geom_point(alpha = 0.7, stroke = 0)+
+  scale_size(range = c(1, 12), guide = 'none') +
+  #scale_x_log10() +
+  labs(title = 'Standard Cases Sold Per Month', x = 'Dollar Sales', y = 'Cases') +
+  scale_color_brewer(palette = 'Set2') + 
+  theme(legend.position = 'none') 
+  
+g1
+
+anim1 = g1 +
+  transition_time(as.Date(date, '%m/%d/%Y'))+
+  labs(subtitle = "Date: {frame_time}") +
+  shadow_wake(wake_length = 0.1)
+
+animate(anim1, height = 400, width = 700, fps = 30, duration = 10, end_pause = 120, res = 100, renderer = gifski_renderer())
+anim_save('test_anim2', path = 'D:/SMU/DS 6120 Capstone A')
+#hmm doesn't play everything at once
 ```
+
 # so that doesn't really work, still some issues when displaying  univariate time series
 
 #basic endpoint model fitting, forecast, and display for app
@@ -282,7 +278,9 @@ aic_results <- aic_results[order(aic_results$aic), ]
 head(aic_results, 5)
 
 #significant difference in aic results from aic5.wge and AIC from base r, calculation differences? 
+```
 
+```{r}
 n_ahead = 2
 
 print('tswge arima estimation')
@@ -294,33 +292,6 @@ fore.aruma.wge(y$STD_Cases, phi = m1$phi, theta = m1$theta, d = 0, s = 0, n.ahea
 
 ```{r}
 #print('base r arima estimation')
-###FORECAST BLOCK
-ctest <- combinations$Customer_ID[1]
-x <- combinations[which(combinations$Customer_ID == ctest), ]
-ptest <- x$Product[1]
-
-#test case for CUSTID 700003059 product FIREBALL CINN WHSKY 12X10 NL 50M
-ctest = 700003059
-ptest = 'FIREBALL CINN WHSKY 12X10 NL 50M'
-#ptest = 'JACK DANIELS BLK WHSKY 1L'
-
-z <- df[which(df$Customer_ID == ctest), ]
-y <- z[which(z$Product == ptest), ] #filter down to single product from single store
-y$date <- as.Date(y$date, "%m/%d/%Y")
-y <- y[order(y$date), ]
-
-### IMPORTANT FOR FILLING IN POTENTIALLY MISSING DATES !!! ###
-full_date_sequence <- data.frame('date' = (seq(y$date[1], y$date[length(y$date)], by = 'month') ) ) %>% setDT()
-intake_data <- y %>% setDT()
-
-full_date_frame <- intake_data[full_date_sequence, on = 'date'] 
-full_date_frame[is.na(full_date_frame)] <- 0
-
-y <- full_date_frame
-### IMPORTANT FOR FILLING IN POTENTIALLY MISSING DATES !!! ###
-
-n_ahead = 3
-
 model_target = y
 p_range = 0:5
 q_range = 0:5
@@ -347,67 +318,20 @@ m2
 pred2 <- predict(m2, n_ahead)
 f2 <- append(model_target$STD_Cases, as.vector(pred2$pred))
 d_labs <- append(rep('data', length(model_target$STD_Cases)), rep('predictions', length(pred2$pred)))
-time_labs <- append(y$date, seq.Date(model_target$date[length(model_target$date)], by = 'month', length.out = n_ahead+1)[-1])
+time_labs <- append(as.Date(y$date, "%m/%d/%Y"), seq.Date(as.Date(model_target$date, "%m/%d/%Y")[length(model_target$date)], by = 'month', length.out = 3)[-1])
 time_labs <- sort(time_labs)
-ep2 <- data.frame("cases" = f2, "category" = d_labs, "date" = time_labs)
+ep2 <- data.frame(cases = f2, category = d_labs, date = time_labs)
 
 v2 <- ggplot(data = ep2) + 
   geom_point(aes(x = date, y = cases, color = category))+
   geom_line(aes(x = date, y = cases, color = category)) +
-  ggtitle(paste('model of ', y$Product[1]), subtitle = paste('ARIMA (', a1[1, 1], ',', 0, ',', a1[1, 2], ')'))+ #a1 should be aic results
-  scale_y_continuous(name = 'STD Cases Purchased')
+  ggtitle(paste('model of ', y$Product[1]), subtitle = paste('ARIMA (', a1[1, 1], ',', 0, ',', a1[1, 2], ')'))
 
 v2
 ```
 
 ```{r}
-#ENDPOINT ASE CHECK 
-n_ahead = 3
-
-base_data <- y
-
-model_target <- base_data[1:(length(base_data$Customer_ID)-n_ahead), ] #trim target data by prediction length
-
-p_range = 0:5
-q_range = 0:5
-
-pqc <- expand.grid(p_range, q_range)
-aic_holder <- vector()
-p_holder <- vector()
-q_holder <- vector()
-
-for(i in seq(1, length(pqc$Var1), 1)) {
-  #print(pqc[i, ])
-  temp_model <- arima(model_target$STD_Cases, order = c(pqc[i, 1], 0, pqc[i, 2]), method = "ML")
-  #aic_holder <- append(aic_holder, temp_model$aic) #base AIC with k = 2?
-  aic_holder <- append(aic_holder, AIC(temp_model, k = log(length(model_target$STD_Cases))))
-  p_holder <- append(p_holder, pqc[i, 1])
-  q_holder <- append(q_holder, pqc[i, 2])
-}
-
-aic_results <- data.frame(p = p_holder, q = q_holder, aic = aic_holder)
-aic_results <- aic_results[order(aic_results$aic), ]
-
-m2 <- arima0(model_target$STD_Cases, order = c(aic_results$p[1], 0, aic_results$q[1]))
-m2
-pred2 <- predict(m2, n_ahead)
-f2 <- append(model_target$STD_Cases, as.vector(pred2$pred))
-d_labs <- append(rep('data', length(model_target$STD_Cases)), rep('predictions', length(pred2$pred)))
-time_labs <- append(model_target$date, seq.Date(model_target$date[length(model_target$date)], by = 'month', length.out = n_ahead+1)[-1])
-time_labs <- sort(time_labs)
-ep2 <- data.frame("cases" = f2, "category" = d_labs, "date" = time_labs)
-
-endpoint <- length(base_data$STD_Cases)
-ase <- (base_data$STD_Cases[(endpoint-n_ahead+1):endpoint]-as.vector(pred2$pred))^2 %>% mean()
-
-v2 <- ggplot(data = ep2) + 
-  geom_point(aes(x = date, y = cases, color = category))+
-  geom_line(aes(x = date, y = cases, color = category)) +
-  geom_line(aes(x = base_data$date, y = base_data$STD_Cases), size = 3, alpha = 0.1)+
-  ggtitle(paste('ARIMA (', a1[1, 1], ',', 0, ',', a1[1, 2], ')', 'model of ', y$Product[1]), subtitle = paste('Endpoint ASE: ', ase))+ #a1 should be aic results
-  scale_y_continuous(name = 'STD Cases Purchased')
-
-v2
+ep2
 ```
 
 
@@ -415,244 +339,19 @@ v2
 #mlr testing
 fit = lm(STD_Cases~as.Date(date, '%m/%d/%Y'), data = y)
 summary(fit)
-#newdata = data.frame(month = as.Date(seq.Date(as.Date('1/1/2020', '%m/%d/%Y'), by = 'month', length.out = 6), '%m/%d/%Y'))
 newdata = data.frame(month = seq.Date(as.Date('1/1/2020', '%m/%d/%Y'), by = 'month', length.out = 6))
-mlr_pred  <- predict(fit)
-head(mlr_pred)
+predict(fit, newdata = newdata)
 
+aic5.wge(fit$residuals) # AR(1)
 
-#aic5.wge(fit$residuals) # AR(1)
-#
-#est1 = est.arma.wge(fit$residuals, p = 1)
-#
-#forecasts = fore.arma.wge(fit$residuals,phi = est1$phi,lastn = FALSE,n.ahead = 12)
-#fors = preds + forecasts$f
-#
-#plot(fors,type = "l")
+est1 = est.arma.wge(fit$residuals, p = 1)
+
+forecasts = fore.arma.wge(fit$residuals,phi = est1$phi,lastn = FALSE,n.ahead = 12)
+fors = preds + forecasts$f
+
+plot(fors,type = "l")
 ```
 
-
-```{r}
-#random forest bag of word approach testing
-library(ranger)
-library(randomForest)
-library(caret)
-
-n_ahead <- 3
-
-y$date <- as.Date(y$date, '%m/%d/%Y')
-target_df = y
-
-tlen = length(target_df$STD_Cases)
-
-#test against last year/n periods data
-sample_train <- target_df[1:(tlen-n_ahead), ]
-sample_test <- target_df[(tlen-n_ahead +1):tlen, ]
-rf1 <- randomForest(STD_Cases ~., data = sample_train, na.action = na.exclude)
-
-pred = predict(rf1, newdata = sample_test)
-
-rf_ase <- mean((sample_test$STD_Cases - pred)^2)
-
-ggplot() + 
-  geom_line(aes(x = sort(y$date), y = y$STD_Cases), col = 'black') +
-  geom_line(aes(x = sort(y$date), y = c(rep(NA, (tlen-n_ahead)), array(pred))), col = 'red') +
-  ggtitle(paste('Random Forest', n_ahead, 'Month ASE: ', rf_ase))
-  
-```
-```{r}
-#rolling ase RF?
-n_ahead <- 24
-
-y$date <- as.Date(y$date, '%m/%d/%Y')
-target_df = y
-sample_train <- target_df[1:(tlen-n_ahead), ]
-sample_test <- target_df[(tlen-n_ahead +1):tlen, ]
-rf1 <- randomForest(STD_Cases ~., data = sample_train, na.action = na.exclude)
-pred = predict(rf1, newdata = sample_test)
-rf_ase <- mean((sample_test$STD_Cases - pred)^2)
-ggplot() + 
-  geom_line(aes(x = sort(y$date), y = y$STD_Cases), col = 'black') +
-  geom_line(aes(x = sort(y$date), y = c(rep(NA, (tlen-n_ahead)), array(pred))), col = 'red') +
-  ggtitle(paste('Random Forest', n_ahead, 'Month ASE: ', rf_ase))
-
-```
-
-```{r}
-#nn testing
-#using package nnfor
-library(nnfor)
-
-
-n_ahead <- 3
-
-y$date <- as.Date(y$date, '%m/%d/%Y')
-target_df = y
-
-tlen = length(target_df$STD_Cases)
-#test against last year/n periods data
-sample_train <- target_df[1:(tlen-n_ahead), ]
-sample_test <- target_df[(tlen-n_ahead +1):tlen, ]
-
-ts1<- as.ts(sample_train$STD_Cases)
-fit1 <- mlp(ts1, reps = 25, hd = c(5, 5, 5)) #still completely arbitrary
-#print(fit1)
-plot(fit1)
-
-mlp_pred <- forecast(fit1, h = n_ahead)
-mlp_ase <- mean((sample_test$STD_Cases - mlp_pred$mean)^2)
-
-ggplot() + 
-  geom_line(aes(x = sort(y$date), y = y$STD_Cases), col = 'black') +
-  geom_line(aes(x = sort(y$date), y = c(rep(NA, (tlen-n_ahead)), mlp_pred$mean)), col = 'red') +
-  ggtitle(paste('MLP', n_ahead, 'Month ASE: ', mlp_ase))
-```
-
-```{r}
-#ugghh try to functionalize it
-#functionalize the model fit, accept ts/vector object, length ahead, reps, hidden layers in vector form,
-#internal: split TS into test/train by the specified length ahead, fit model to train, predict n_ahead, compare to test to get ASE
-#output: print(mlp object), plot(mlp object), ggplot the TS, predictions in different color, output the predictions as a separate vector? Optional plot showing with display = TRUE 
-
-#assuming that y is a dataframe of the narrowed query data
-target_df <- y
-
-#nn complete
-nnc <- function(tvector, n_ahead, reps, hd_vector, display){
-  #date_line <- as.Date(target_df$date, '%m/%d/%Y') #add date back in after it works
-  tlen <- length(tvector)
-  sample_train <- target_df[1:(tlen-n_ahead), ]
-  sample_test <- target_df[(tlen-n_ahead +1):tlen, ]
-  
-  ts_train<- as.ts(sample_train$STD_Cases)
-  fit_mlp <- mlp(ts_train, reps = reps, hd = hd_vector)
-  
-  mlp_pred <- forecast(fit_mlp, h = n_ahead)
-  mlp_ase <- mean((sample_test$STD_Cases - mlp_pred$mean)^2)
-  
-  r1 <- ggplot() + 
-    geom_line(aes(x = sort(target_df$date), y = target_df$STD_Cases), col = 'black') +
-    geom_line(aes(x = sort(target_df$date), y = c(rep(NA, (tlen-n_ahead)), mlp_pred$mean)), col = 'red') +
-    ggtitle(paste('MLP', n_ahead, 'Month ASE: ', mlp_ase), subtitle =paste(target_df$Product[1], 'Purchases By Cust ID: ', target_df$Customer_ID[1]))
-  
-  if(display == TRUE){
-    print(fit_mlp)
-    plot(fit_mlp)
-    show(r1)}
-  
-  return(list(mlp_pred$mean, mlp_ase))
-}
-```
-
-```{r}
-#test function
-x <- nnc(y$STD_Cases, 3, 25, c(5, 10, 15, 5), TRUE)
-x
-#returns object as list with predictions and ase
-```
-
-```{r}
-#rolling ase jenna style?? might be computationally expensive to recalc the model for each window? time later
-#just need to switch around the input data and store each ase
-#as far as i understand it, we are starting at 12 months, then forecasting from 12 months ago 2, 3, 4, 5, 6, ect months out, then compositing those ase as rolling ase? but retraining on every single new dataset??
-
-repetitions = 25
-layer_structure = c(24, 12, 6)
-
-#structure to start12month rolling ase, can i just pass along 12/11 different n_aheads? 
-windows <- seq(2, 12, 1) #list of n_aheads
-nn_ase_holder <- vector()
-nn_pred_holder <- vector()
-
-for(i in windows){
-  temp_results <- nnc(y$STD_Cases, i, repetitions, layer_structure, display = FALSE)
-  nn_ase_holder <- append(nn_ase_holder, temp_results[[2]]) #double square brackets because list of lists
-  nn_pred_holder <- append(nn_pred_holder, temp_results[[1]])
-}
-
-paste('mean 12 month Rolling ASE (KINDA) = ', mean(nn_ase_holder))
-#needagraphic ?
-```
-
-```{r}
-#actual rolling ase
-#take the same fitted model and gauge its effectiveness across multiple time spans of the same time series
-
-reps = 10
-hd_vector = c(5, 5, 5) #completely arbitrary as of now, look up common practices for this later
-n_ahead = 6
-
-target_df <- y
-target_vector <- target_df$STD_Cases
-tlen <- length(target_vector)
-win_train_size = 8
-win_test_size = n_ahead
-step_size = 6
-show_fit = TRUE #t/f for fit output
-
-#initialize start points for each window
-start_points <- seq(1, tlen, step_size)
-step_sequence_truncated = start_points[1:(length(start_points)-5)]
-win_ase_holder = vector()
-win_pred_holder <- matrix(nrow = length(start_points), ncol = n_ahead) #empty matrix to hold predictions for plotting later
-m_indexer = 1
-for(i in step_sequence_truncated){ #point generation is a bit wonky, cut off the last iteration to avoid feeding in NAS
-  #print(c(i, i+win_train_size, i+win_train_size+1, i+win_train_size+win_test_size))
-  win_train <- target_df[i:(i+win_train_size), ]
-  win_test <- target_df[(i+win_train_size+1):(i+win_train_size+win_test_size), ]
-  
-  win_mlp <- mlp(as.ts(win_train$STD_Cases), reps = reps, hd = hd_vector, outplot = show_fit) 
-  
-  
-  #why doesn't it generalize on win_train????? 
-  
-  
-  win_pred<- forecast(win_mlp, h = n_ahead)
-  win_ase <- mean((win_test$STD_Cases-win_pred$mean)^2)
-  
-  win_pred_holder[m_indexer, ] <- win_pred$mean
-  m_indexer = m_indexer + 1 #iterate along matrix rows to fill with predictions
-  win_ase_holder <- append(win_ase_holder, win_ase)
-}
-
-#trim by invalid ase measures to remove out of bounds predictions
-valid_bounds <- (dim(win_pred_holder)[1]-sum(is.na(win_ase_holder))) #should return the row limit of data that was still within the bounds of the data without nas
-win_pred_holder <- win_pred_holder[1:valid_bounds, ]
-win_ase_holder <- win_ase_holder[1:valid_bounds]
-
-paste('NN mean rolling ASE :', mean(win_ase_holder))
-
-#cool graph time
-#arrange in dataframe with dates, data, and labels?? 
-viz_frame = data.frame(y$date, y$STD_Cases, rep('original', length(y$date)))
-names(viz_frame) <- c('date', 'cases', 'data_type')
-#append additional generated frames here with datatype labels for easy ggplotting?
-
-#generate datasets with filler nas, bind to dataframe with full dates and labels, rbind to vizframe?
-wincount = 1
-#for(i in start_points[1:valid_bounds]){
-for(i in step_sequence_truncated){
-  #print(c(i, i+win_train_size, i+win_train_size+1, i+win_train_size+win_test_size))
-  space_before <- i+win_train_size
-  space_after <- length(target_df$STD_Cases) - (i+win_train_size+win_test_size)
-  spaced_preds <- c(rep(NA, space_before), win_pred_holder[wincount, ], rep(NA, space_after))
-  
-  #print(spaced_preds)
-  #create dataframe with each spaced preds that corresponds to date and label it in the third column
-  df_temp <- data.frame('date' = target_df$date, 'cases' = spaced_preds, 'data_type' = rep(paste('window ', wincount, ' predictions'), length(target_df$date)))
-  wincount = wincount + 1
-  viz_frame <- rbind(viz_frame, df_temp)
-}
-#there we go graph by color is easier now
-nn_graph <- ggplot(data = viz_frame) +
-  geom_line(aes(x = date, y = cases, color = data_type)) +
-  ggtitle('MLP Rolling ASE', subtitle = paste('NN mean rolling ASE :', mean(win_ase_holder)))+
-  xlab('Date') + ylab('Cases purchased')
-show(nn_graph)
-```
-```{r}
-viz_frame
-```
 
 ## Time Series EDA & Forecasting
 ***
@@ -960,32 +659,17 @@ first need ts form, set index and value
 cross validation for time series: need to keep the time dependency, can't just shuffle things without losing meaning. create multiple synthetic "futures"? 
 
 ```{r}
-ctest <- combinations$Customer_ID[1]
-x <- combinations[which(combinations$Customer_ID == ctest), ]
-ptest <- x$Product[1]
-
-#test case for CUSTID 700003059 product FIREBALL CINN WHSKY 12X10 NL 50M
-ctest = 700003059
-ptest = 'FIREBALL CINN WHSKY 12X10 NL 50M'
-#ptest = 'JACK DANIELS BLK WHSKY 1L'
-
-z <- df[which(df$Customer_ID == ctest), ]
-y <- z[which(z$Product == ptest), ] #filter down to single product from single store
-y$date <- as.Date(y$date, "%m/%d/%Y")
-y <- y[order(y$date), ]
-
-#ex1 <- data.frame(date = strptime((y$date), "%d/%m/%Y"), cases = y$STD_Cases)
-ex1 <- data.frame(date = y$date, cases = y$STD_Cases)
+ex1 <- data.frame(date = strptime((temp1$date), "%d/%m/%Y"), cases = temp1$STD_Cases)
 ggplot(ex1, aes(x = date, y = cases)) + geom_line()
 ```
 
 ```{r}
-#ex1 <- data.frame(date = strptime((temp1$date), "%d/%m/%Y"), cases = temp1$STD_Cases)
+ex1 <- data.frame(date = strptime((temp1$date), "%d/%m/%Y"), cases = temp1$STD_Cases)
 ex2 <- tbl_time(ex1, date)
 
 rolling_origin_resamples <- rolling_origin(
   ex2,
-  initial    = 12,
+  initial    = 24,
   assess     = 12,
   cumulative = FALSE, #means that the resmaples will be the same... size? 
   skip       = 6
@@ -1140,8 +824,8 @@ so we can see the 'slices' of the data are pretty unhelpful when looking at a mo
 
 looking at an individual slice to test lstm
 ```{r}
-example_split    <- rolling_origin_resamples$splits[[1]]
-example_split_id <- rolling_origin_resamples$id[[1]]
+example_split    <- rolling_origin_resamples$splits[[6]]
+example_split_id <- rolling_origin_resamples$id[[6]]
 
 plot_split(example_split, expand_y_axis = FALSE, size = 0.5) + 
   theme(legend.position = 'bottom') + ggtitle(glue("Split: {example_split_id}"))
@@ -1194,9 +878,9 @@ num_timesteps is the length of hidden state???
 num-features is number of predictors. for this univariate example, = 1
 
 ```{r}
-n_timesteps <- 2
+n_timesteps <- 3
 n_predictions <- n_timesteps
-batch_size <- 20
+batch_size <- 6
 
 # functions used
 build_matrix <- function(tseries, overall_timesteps) {
@@ -1264,13 +948,13 @@ FLAGS <- flags(
   flag_boolean('stateful', FALSE), #??? 
   flag_boolean('stack_layers', FALSE), #adding layers does ??? guides says it doesn't help for this task
   flag_integer('batch_size', 10), #samples fed to model per iteration
-  flag_integer('n_timesteps', 4), #size of predictions, which is the same as size of hidden state
-  flag_integer('n_epochs', 300), #how many epochs??? (time intervals?)
+  flag_integer('n_timesteps', 12), #size of predictions, which is the same as size of hidden state
+  flag_integer('n_epochs', 100), #how many epochs??? (time intervals?)
   flag_numeric('dropout', 0.2), #drops .2 units for linear transformation of inputs
   flag_numeric('recurrent_dropout', 0.2), #drops .2 units for linear transformation??? 
   flag_string('loss', 'logcosh'), #loss function used, logcosh worked better than MSE
   flag_string('optimizer_type', 'sgd'), #use stochastic gradient descent for optimization (other options include adam or rmsprop)
-  flag_integer('n_units', 144), #size of lstm layer
+  flag_integer('n_units', 128), #size of lstm layer
   flag_numeric('lr', 0.003), #learning rate?
   flag_numeric('momentum', 0.9), #parameter for SGD optimizer
   flag_integer('patience', 10) #early stopping callback check
@@ -1493,8 +1177,5 @@ profiling diagnostics filter maybe?
 library(skimr)
 #look at ts and filter for certain percentage of missing/zero values in order to discard infrequent items? 
 ```
-
-meeting 7-19-2020
-write selection mech to specify a single product name, then pull all matching results with (50-75%) non-missing data, shove through model fitting approaches, save highest performing model details, ase, predictions, ect, and aggregate all those predictions to get a 1-3 month aggregated forecast for that single product across all regions. 
 
 
