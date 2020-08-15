@@ -184,6 +184,7 @@ acf(y$STD_Cases, main = 'ACF')
 spectrum(y$STD_Cases, method = 'pgram', type = 'h')
 spectrum(y$STD_Cases, method = 'ar')
 ```
+
 ```{r}
 plotts.sample.wge(y$STD_Cases)
 ```
