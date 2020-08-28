@@ -337,11 +337,12 @@ ep2
 
 
 ```{r}
-#mlr testing
-fit = lm(STD_Cases~as.Date(date, '%m/%d/%Y'), data = y)
+#lr testing
+fit = lm(y$STD_Cases~as.Date(y$date, '%m/%d/%Y'), data = y)
 summary(fit)
 newdata = data.frame(month = seq.Date(as.Date('1/1/2020', '%m/%d/%Y'), by = 'month', length.out = 6))
-predict(fit, newdata = newdata)
+preds <- predict(fit, newdata = newdata, se.fit = TRUE)
+
 
 aic5.wge(fit$residuals) # AR(1)
 
