@@ -1,0 +1,376 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+test and cleaning for additional models
+now functionalized!
+
+***
+# Time Series Analysis of Corpus Christi Liquor Distribution
+***
+Jenna Ford, Christian Nava and Jonathan Tan  
+
+```{r setup, include=FALSE}
+library(rmdformats)
+library(tidyverse)  # data manipulaiton
+library(data.table)
+library(tswge)  # Time series package
+library(tseries)  # for Dickey-Fuller test 
+library(orcutt)  # for Cochrane-Orcutt test
+library(formattable)  # for table formatting
+library(GGally)
+library(astsa)
+library(nnfor)
+library(dplyr)
+library(ggplot2)
+library(changepoint)
+library(date)
+library(R.devices)
+knitr::opts_chunk$set(echo = TRUE,
+               prompt = FALSE,
+               tidy = TRUE,
+               comment = NA,
+               message = FALSE,
+               warning = FALSE)
+```
+
+## Read in Datasets and Combine
+***
+```{r data} 
+#note ask for updated headings csv changes to stay synced
+df_17_19 = read.csv("D:/SMU/DS 6120 Capstone A/Bivin CC 2017-19_updated_headings.csv")
+df_15_16 = read.csv("D:/SMU/DS 6120 Capstone A/Bivin CC 2015-16_updated_headings.csv")
+df_13_14 = read.csv("D:/SMU/DS 6120 Capstone A/Bivin CC 2013-14_updated_headings.csv")
+#df_17_19 = read.csv("C:/Users/b007224/Documents/masters_in_data_science/capstone/data/Bivin CC 2017-19_updated_headings.csv")
+#df_15_16 = read.csv("C:/Users/b007224/Documents/masters_in_data_science/capstone/data/Bivin CC 2015-16_updated_headings.csv")
+#df_13_14 = read.csv("C:/Users/b007224/Documents/masters_in_data_science/capstone/data/Bivin CC 2013-14_updated_headings.csv")
+
+dim(df_17_19)
+dim(df_15_16)
+dim(df_13_14)
+
+#format date column
+df_17_19$date = date.mmddyy(mdy.date(match(substr(df_17_19$Month, 1, 3),month.abb),01,df_17_19$Year),sep="/")
+df_15_16$date = date.mmddyy(mdy.date(match(substr(df_15_16$Month, 4, 6),month.abb),01,df_15_16$Year),sep="/")
+df_13_14$date = date.mmddyy(mdy.date(match(substr(df_13_14$Month, 1, 3),month.abb),01,df_13_14$Year),sep="/")
+
+df <- rbind(df_17_19,df_15_16,df_13_14)
+
+#dim(df)
+```
+## Check for Missing Data
+***
+Here we create a function to check for missing data.
+```{r missing}
+check.for.missing.data <- function(data){
+  a = colnames(data)
+  b = colSums(is.na(df))  %>% as.data.table
+  missing_value_table = cbind(a, b)
+  colnames(missing_value_table) = c("Variables","Missing_values")
+  missing_value_table = missing_value_table  %>% filter(Missing_values>0)  %>% 
+                        mutate("As a % of Total Values" = round(100 * (Missing_values / nrow(df)), 1))  %>% 
+                        arrange(desc(Missing_values))
+  head(missing_value_table, 20)
+}
+
+table_a = check.for.missing.data(data=df)
+# display table with first column aligned left all others aligned right
+formattable(table_a, align = c("l", rep("r", NCOL(table_a) - 1)))
+```
+
+## Keep Only Active Accounts
+***
+
+```{r filter}
+invisible(df %>% filter(Account_Status != "Closed"))
+```
+
+## Drop Variables
+***
+
+```{r drop}
+drops <- c("Metrics","Year","Month","House","Account_Status","Beverage_Type","Fiscal_Year","Premise","Customer_Street_Address","Customer_City",
+           "Customer_Zip_Code","Longitude_Customer","Latitude_Customer","Customer","Vendor","Brand_ID","Brand","Size","Product_ID","Chain","Category",
+           "Product_Type_ID","Qty_Per_Case","Alcohol_Proof","X9L_Cases","Dollar_Sales_Per_Case","Dollar_Sales_Per_9L_Case")
+df = df[ , !(names(df) %in% drops)]
+```
+
+## Variable Formatting
+***
+
+```{r formatting}
+df$Dollar_Sales = as.numeric(gsub('[$,]', '', df$Dollar_Sales))
+str(df)
+```
+
+## Products
+***
+
+```{r products}
+product_type_group = df %>% group_by(Product_Type) %>% tally(sort=TRUE)
+dim(product_type_group)
+formattable(head(product_type_group), align = c("l", rep("r", NCOL(table_a) - 1)))
+
+product_group = df %>% group_by(Product) %>% tally(sort=TRUE)
+dim(product_group)
+formattable(head(product_group), align = c("l", rep("r", NCOL(table_a) - 1)))
+
+customer_group = df %>% group_by(Customer_ID) %>% tally(sort=TRUE)
+dim(customer_group)
+formattable(head(customer_group), align = c("l", rep("r", NCOL(table_a) - 1)))
+
+product_type_product_group = df %>% group_by(Product_Type, Product) %>% tally(sort=TRUE)
+dim(product_type_product_group)
+formattable(head(product_type_product_group), align = c("l", rep("r", NCOL(table_a) - 1)))
+
+all_group = df %>% group_by(Product_Type, Product, Customer_ID) %>% tally(sort=TRUE)
+dim(all_group)
+formattable(head(all_group), align = c("l", rep("r", NCOL(table_a) - 1)))
+```
+
+```{r combinations}
+# Create file with all possible combinations
+combinations0 = as.data.frame(df %>% group_by(Product_Type, Product, Customer_ID) %>% tally(sort=TRUE))
+combinations = combinations0 %>% filter(n >= 42)
+
+# Sample combinations
+set.seed(123)
+sample_combinations = sample_n(combinations,10)
+drops <- c("n")
+sample_combinations = sample_combinations[ , !(names(sample_combinations) %in% drops)]
+formattable(sample_combinations, align = c("l", rep("r", NCOL(table_a) - 1)))
+```
+
+```{r}
+#temp_store_product_list testing app testing
+ctest <- combinations$Customer_ID[2] #pick a random entry/combination thing 
+x <- combinations[which(combinations$Customer_ID == ctest), ]
+ptest <- x$Product[1]
+
+z <- df[which(df$Customer_ID == ctest), ]
+y <- z[which(z$Product == ptest), ] #filter down to single product from single store
+
+nacounter <- which(y$STD_Cases == 0) %>% length() %>% sum()
+ 
+#ggplot() +
+  #geom_line(data = y, aes(x = as.Date(date, '%m/%d/%Y'), y = STD_Cases)) 
+
+#paste("Number of missing values: " ,nacounter)
+
+#summary(y$STD_Cases)
+#summary(y$Dollar_Sales)
+```
+
+```{r}
+#RF function
+library(ranger)
+library(randomForest)
+library(caret)
+
+rf_ts <- function(n_ahead, target_df, show_graph){
+  target_df$date <- as.Date(target_df$date, '%m/%d/%Y')
+  tlen = length(target_df$STD_Cases)
+  sample_train <- target_df[1:(tlen-n_ahead), ]
+  sample_test <- target_df[(tlen-n_ahead +1):tlen, ]
+  sample_test$Dollar_Sales[is.na(sample_test$Dollar_Sales)] <- 0
+  rf1 <- randomForest(STD_Cases ~date + Dollar_Sales, data = sample_train, na.action = na.exclude)
+  pred1 = predict(rf1, newdata = sample_test)
+  rf_ase <- mean((sample_test$STD_Cases - pred1)^2)
+  predictions <- data.frame(date = sample_test$date, forecast = pred1)
+  
+  
+  results = c(predictions, data.frame(ASE = rf_ase))
+  
+  g1 <- ggplot() + 
+    geom_line(aes(x = sort(target_df$date), y = target_df$STD_Cases), col = 'black') +
+    geom_line(aes(x = sort(target_df$date), y = c(rep(NA, (tlen-n_ahead)), array(pred1))), col = 'red') +
+    ggtitle(paste('Random Forest', n_ahead, 'Month ASE: ', rf_ase))
+  
+  if(show_graph == TRUE){
+    show(g1)
+  }
+  return(results)
+}
+```
+
+```{r}
+#function test case
+x <- rf_ts(12, y, TRUE)
+x
+```
+```{r, warning = FALSE}
+#functionalized rolling ase, static
+#generate goalposts, or window stop/start positions to iteratively create sections of target_dataframe to feed into rf_ts
+#then store and aggregate for rolling window ase
+
+rf_roll_ase <- function(n_ahead, target_df, train_size, step_size, show_graph){
+  target_df$date <- as.Date(target_df$date, '%m/%d/%Y')
+  tlen <-  length(target_df$STD_Cases)
+  win_count = floor((tlen-(train_size + n_ahead))/step_size) #calc number of windows to fit into ts
+  #iterate start and end points of slices of target df
+  start_dex = 1
+  end_dex = start_dex + train_size + n_ahead
+  ase_holder = c()
+  for(i in seq(1, win_count, 1)){
+    #print(c(start_dex, end_dex))
+    partial <- target_df[start_dex:end_dex,]
+    r <- rf_ts(n_ahead, partial, show_graph)
+    ase_holder[i] <- r$ASE
+    start_dex <- start_dex + step_size
+    end_dex <- end_dex + step_size
+  }
+  return(paste('Rolling Window ASE: ', mean(ase_holder)))
+}
+```
+
+```{r}
+rf_roll_ase(3, y, 18, 3, FALSE)
+```
+
+
+NN section 
+
+```{r}
+target_df <- y
+
+#nn complete
+nnc <- function(tvector, n_ahead, reps, hd_vector, display){
+  #date_line <- as.Date(target_df$date, '%m/%d/%Y') #add date back in after it works
+  tlen <- length(tvector)
+  sample_train <- target_df[1:(tlen-n_ahead), ]
+  sample_test <- target_df[(tlen-n_ahead +1):tlen, ]
+  
+  ts_train<- as.ts(sample_train$STD_Cases)
+  fit_mlp <- mlp(ts_train, reps = reps, hd = hd_vector)
+  
+  mlp_pred <- forecast(fit_mlp, h = n_ahead)
+  mlp_ase <- mean((sample_test$STD_Cases - mlp_pred$mean)^2)
+  
+  r1 <- ggplot() + 
+    geom_line(aes(x = sort(target_df$date), y = target_df$STD_Cases), col = 'black') +
+    geom_line(aes(x = sort(target_df$date), y = c(rep(NA, (tlen-n_ahead)), mlp_pred$mean)), col = 'red') +
+    ggtitle(paste('MLP', n_ahead, 'Month ASE: ', mlp_ase), subtitle =paste(target_df$Product[1], 'Purchases By Cust ID: ', target_df$Customer_ID[1]))
+  
+  if(display == TRUE){
+    print(fit_mlp)
+    plot(fit_mlp)
+    show(r1)}
+  
+  return(list(mlp_pred$mean, mlp_ase))
+}
+```
+
+
+```{r}
+#test function
+#fields are nnc([univariate ts], [n_ahead], [reps], [hd_vector], [display TRUE/FALSE])
+x <- nnc(y$STD_Cases, 3, 25, c(5, 10, 15, 5), TRUE)
+x
+#returns object as list with predictions and ase
+```
+
+```{r}
+#constant reevaluation rolling ASE
+repetitions = 25
+layer_structure = c(24, 12, 6)
+
+#structure to start12month rolling ase, can i just pass along 12/11 different n_aheads? 
+windows <- seq(2, 12, 1) #list of n_aheads
+nn_ase_holder <- vector()
+nn_pred_holder <- vector()
+
+for(i in windows){
+  temp_results <- nnc(y$STD_Cases, i, repetitions, layer_structure, display = FALSE)
+  nn_ase_holder <- append(nn_ase_holder, temp_results[[2]]) #double square brackets because list of lists
+  nn_pred_holder <- append(nn_pred_holder, temp_results[[1]])
+}
+paste('mean 12 month Rolling ASE (KINDA) = ', mean(nn_ase_holder))
+```
+
+
+```{r}
+#static formula ASE
+#take the same fitted model and gauge its effectiveness across multiple time spans of the same time series
+
+reps = 10
+hd_vector = c(5, 5, 5) #completely arbitrary as of now, look up common practices for this later
+n_ahead = 6
+
+target_df <- y
+target_vector <- target_df$STD_Cases
+tlen <- length(target_vector)
+win_train_size = 8
+win_test_size = n_ahead
+step_size = 6
+show_fit = TRUE #t/f for fit output
+
+#initialize start points for each window
+start_points <- seq(1, tlen, step_size)
+step_sequence_truncated = start_points[1:(length(start_points)-5)]
+win_ase_holder = vector()
+win_pred_holder <- matrix(nrow = length(start_points), ncol = n_ahead) #empty matrix to hold predictions for plotting later
+m_indexer = 1
+for(i in step_sequence_truncated){ #point generation is a bit wonky, cut off the last iteration to avoid feeding in NAS
+  #print(c(i, i+win_train_size, i+win_train_size+1, i+win_train_size+win_test_size))
+  win_train <- target_df[i:(i+win_train_size), ]
+  win_test <- target_df[(i+win_train_size+1):(i+win_train_size+win_test_size), ]
+  
+  win_mlp <- mlp(as.ts(win_train$STD_Cases), reps = reps, hd = hd_vector, outplot = show_fit) 
+  
+  
+  #why doesn't it generalize on win_train????? 
+  
+  
+  win_pred<- forecast(win_mlp, h = n_ahead)
+  win_ase <- mean((win_test$STD_Cases-win_pred$mean)^2)
+  
+  win_pred_holder[m_indexer, ] <- win_pred$mean
+  m_indexer = m_indexer + 1 #iterate along matrix rows to fill with predictions
+  win_ase_holder <- append(win_ase_holder, win_ase)
+}
+
+#trim by invalid ase measures to remove out of bounds predictions
+valid_bounds <- (dim(win_pred_holder)[1]-sum(is.na(win_ase_holder))) #should return the row limit of data that was still within the bounds of the data without nas
+win_pred_holder <- win_pred_holder[1:valid_bounds, ]
+win_ase_holder <- win_ase_holder[1:valid_bounds]
+
+paste('NN mean rolling ASE :', mean(win_ase_holder))
+
+#cool graph time
+#arrange in dataframe with dates, data, and labels?? 
+viz_frame = data.frame(y$date, y$STD_Cases, rep('original', length(y$date)))
+names(viz_frame) <- c('date', 'cases', 'data_type')
+#append additional generated frames here with datatype labels for easy ggplotting?
+
+#generate datasets with filler nas, bind to dataframe with full dates and labels, rbind to vizframe?
+wincount = 1
+#for(i in start_points[1:valid_bounds]){
+for(i in step_sequence_truncated){
+  #print(c(i, i+win_train_size, i+win_train_size+1, i+win_train_size+win_test_size))
+  space_before <- i+win_train_size
+  space_after <- length(target_df$STD_Cases) - (i+win_train_size+win_test_size)
+  spaced_preds <- c(rep(NA, space_before), win_pred_holder[wincount, ], rep(NA, space_after))
+  
+  #print(spaced_preds)
+  #create dataframe with each spaced preds that corresponds to date and label it in the third column
+  df_temp <- data.frame('date' = target_df$date, 'cases' = spaced_preds, 'data_type' = rep(paste('window ', wincount, ' predictions'), length(target_df$date)))
+  wincount = wincount + 1
+  viz_frame <- rbind(viz_frame, df_temp)
+}
+#there we go graph by color is easier now
+nn_graph <- ggplot(data = viz_frame) +
+  geom_line(aes(x = date, y = cases, color = data_type)) +
+  ggtitle('MLP Rolling ASE', subtitle = paste('NN mean rolling ASE :', mean(win_ase_holder)))+
+  xlab('Date') + ylab('Cases purchased')
+show(nn_graph)
+```
+
+
+
+
+
+
+
+
+
+

@@ -170,7 +170,71 @@ str(temp)
 
 ```
 
+```{r}
+#RF function
+library(ranger)
+library(randomForest)
+library(caret)
+
+rf_ts <- function(n_ahead, target_df, show_graph){
+  target_df$date <- as.Date(target_df$date, '%m/%d/%Y')
+  tlen = length(target_df$STD_Cases)
+  sample_train <- target_df[1:(tlen-n_ahead), ]
+  sample_test <- target_df[(tlen-n_ahead +1):tlen, ]
+  sample_test$Dollar_Sales[is.na(sample_test$Dollar_Sales)] <- 0
+  rf1 <- randomForest(STD_Cases ~date + Dollar_Sales, data = sample_train, na.action = na.exclude)
+  pred1 = predict(rf1, newdata = sample_test)
+  rf_ase <- mean((sample_test$STD_Cases - pred1)^2)
+  predictions <- data.frame(date = sample_test$date, forecast = pred1)
+  
+  
+  results = c(predictions, data.frame(ASE = rf_ase))
+  
+  g1 <- ggplot() + 
+    geom_line(aes(x = sort(target_df$date), y = target_df$STD_Cases), col = 'black') +
+    geom_line(aes(x = sort(target_df$date), y = c(rep(NA, (tlen-n_ahead)), array(pred1))), col = 'red') +
+    ggtitle(paste('Random Forest', n_ahead, 'Month ASE: ', rf_ase))
+  
+  if(show_graph == TRUE){
+    show(g1)
+  }
+  return(results)
+}
+```
+
+```{r}
+#nn complete
+nnc <- function(tvector, n_ahead, reps, hd_vector, display){
+  #date_line <- as.Date(target_df$date, '%m/%d/%Y') #add date back in after it works
+  tlen <- length(tvector)
+  sample_train <- temp1[1:(tlen-n_ahead), ]
+  sample_test <- temp1[(tlen-n_ahead +1):tlen, ]
+  
+  ts_train<- as.ts(sample_train$STD_Cases)
+  fit_mlp <- mlp(ts_train, reps = reps, hd = hd_vector)
+  
+  mlp_pred <- forecast(fit_mlp, h = n_ahead)
+  mlp_ase <- mean((sample_test$STD_Cases - mlp_pred$mean)^2)
+  
+  #r1 <- ggplot() + 
+  #  geom_line(aes(x = sort(target_df$date), y = target_df$STD_Cases), col = 'black') +
+  #  geom_line(aes(x = sort(target_df$date), y = c(rep(NA, (tlen-n_ahead)), mlp_pred$mean)), col = 'red') +
+  #  ggtitle(paste('MLP', n_ahead, 'Month ASE: ', mlp_ase), subtitle =paste(target_df$Product[1], 'Purchases By Cust ID: ', target_df$Customer_ID[1]))
+  
+  #if(display == TRUE){
+  #  print(fit_mlp)
+  #  plot(fit_mlp)
+  #  show(r1)}
+  
+  forecasts <- data.frame(forecast = mlp_pred$mean)
+  return(c(forecasts, mlp_ase))
+}
+```
+
+
 ```{r loop1}
+# this code block is for individual product/customer combinations, no aggregation is done here
+
 results <- data.frame(Product_Type=integer(),
                       Product=character(),
                       Customer=integer(),
@@ -179,7 +243,6 @@ results <- data.frame(Product_Type=integer(),
                       ljung_results=character(),
                       top_5_bic=character(),
                       ADF=double(),
-                      PP=double(),
                       KPSS=double(),
                       stationarity_results=character(),
                       EqualMeans_1_ASE=double(),
@@ -194,6 +257,18 @@ results <- data.frame(Product_Type=integer(),
                       EqualMeans_10_ASE=double(),
                       EqualMeans_11_ASE=double(),
                       EqualMeans_12_ASE=double(),
+                      EqualMeans_F1=double(),
+                      EqualMeans_F2=double(),
+                      EqualMeans_F3=double(),
+                      EqualMeans_F4=double(),
+                      EqualMeans_F5=double(),
+                      EqualMeans_F6=double(),
+                      EqualMeans_F7=double(),
+                      EqualMeans_F8=double(),
+                      EqualMeans_F9=double(),
+                      EqualMeans_F10=double(),
+                      EqualMeans_F11=double(),
+                      EqualMeans_F12=double(),
                       AR_1_ASE=double(),
                       AR_2_ASE=double(),
                       AR_3_ASE=double(),
@@ -206,6 +281,18 @@ results <- data.frame(Product_Type=integer(),
                       AR_10_ASE=double(),
                       AR_11_ASE=double(),
                       AR_12_ASE=double(),
+                      AR_F1=double(),
+                      AR_F2=double(),
+                      AR_F3=double(),
+                      AR_F4=double(),
+                      AR_F5=double(),
+                      AR_F6=double(),
+                      AR_F7=double(),
+                      AR_F8=double(),
+                      AR_F9=double(),
+                      AR_F10=double(),
+                      AR_F11=double(),
+                      AR_F12=double(),
                       ARMA_1_ASE=double(),
                       ARMA_2_ASE=double(),
                       ARMA_3_ASE=double(),
@@ -218,6 +305,18 @@ results <- data.frame(Product_Type=integer(),
                       ARMA_10_ASE=double(),
                       ARMA_11_ASE=double(),
                       ARMA_12_ASE=double(),
+                      ARMA_F1=double(),
+                      ARMA_F2=double(),
+                      ARMA_F3=double(),
+                      ARMA_F4=double(),
+                      ARMA_F5=double(),
+                      ARMA_F6=double(),
+                      ARMA_F7=double(),
+                      ARMA_F8=double(),
+                      ARMA_F9=double(),
+                      ARMA_F10=double(),
+                      ARMA_F11=double(),
+                      ARMA_F12=double(),
                       ARI_1_ASE=double(),
                       ARI_2_ASE=double(),
                       ARI_3_ASE=double(),
@@ -230,6 +329,18 @@ results <- data.frame(Product_Type=integer(),
                       ARI_10_ASE=double(),
                       ARI_11_ASE=double(),
                       ARI_12_ASE=double(),
+                      ARI_F1=double(),
+                      ARI_F2=double(),
+                      ARI_F3=double(),
+                      ARI_F4=double(),
+                      ARI_F5=double(),
+                      ARI_F6=double(),
+                      ARI_F7=double(),
+                      ARI_F8=double(),
+                      ARI_F9=double(),
+                      ARI_F10=double(),
+                      ARI_F11=double(),
+                      ARI_F12=double(),
                       ARIMA_1_ASE=double(),
                       ARIMA_2_ASE=double(),
                       ARIMA_3_ASE=double(),
@@ -242,6 +353,18 @@ results <- data.frame(Product_Type=integer(),
                       ARIMA_10_ASE=double(),
                       ARIMA_11_ASE=double(),
                       ARIMA_12_ASE=double(),
+                      ARIMA_F1=double(),
+                      ARIMA_F2=double(),
+                      ARIMA_F3=double(),
+                      ARIMA_F4=double(),
+                      ARIMA_F5=double(),
+                      ARIMA_F6=double(),
+                      ARIMA_F7=double(),
+                      ARIMA_F8=double(),
+                      ARIMA_F9=double(),
+                      ARIMA_F10=double(),
+                      ARIMA_F11=double(),
+                      ARIMA_F12=double(),
                       ARI_S12_1_ASE=double(),
                       ARI_S12_2_ASE=double(),
                       ARI_S12_3_ASE=double(),
@@ -254,6 +377,18 @@ results <- data.frame(Product_Type=integer(),
                       ARI_S12_10_ASE=double(),
                       ARI_S12_11_ASE=double(),
                       ARI_S12_12_ASE=double(),
+                      ARI_S12_F1=double(),
+                      ARI_S12_F2=double(),
+                      ARI_S12_F3=double(),
+                      ARI_S12_F4=double(),
+                      ARI_S12_F5=double(),
+                      ARI_S12_F6=double(),
+                      ARI_S12_F7=double(),
+                      ARI_S12_F8=double(),
+                      ARI_S12_F9=double(),
+                      ARI_S12_F10=double(),
+                      ARI_S12_F11=double(),
+                      ARI_S12_F12=double(),
                       ARIMA_S12_1_ASE=double(),
                       ARIMA_S12_2_ASE=double(),
                       ARIMA_S12_3_ASE=double(),
@@ -266,6 +401,84 @@ results <- data.frame(Product_Type=integer(),
                       ARIMA_S12_10_ASE=double(),
                       ARIMA_S12_11_ASE=double(),
                       ARIMA_S12_12_ASE=double(),
+                      ARIMA_S12_F1=double(),
+                      ARIMA_S12_F2=double(),
+                      ARIMA_S12_F3=double(),
+                      ARIMA_S12_F4=double(),
+                      ARIMA_S12_F5=double(),
+                      ARIMA_S12_F6=double(),
+                      ARIMA_S12_F7=double(),
+                      ARIMA_S12_F8=double(),
+                      ARIMA_S12_F9=double(),
+                      ARIMA_S12_F10=double(),
+                      ARIMA_S12_F11=double(),
+                      ARIMA_S12_F12=double(),
+                      RF_1_ASE=double(),
+                      RF_2_ASE=double(),
+                      RF_3_ASE=double(),
+                      RF_4_ASE=double(),
+                      RF_5_ASE=double(),
+                      RF_6_ASE=double(),
+                      RF_7_ASE=double(),
+                      RF_8_ASE=double(),
+                      RF_9_ASE=double(),
+                      RF_10_ASE=double(),
+                      RF_11_ASE=double(),
+                      RF_12_ASE=double(),
+                      RF_F1=double(),
+                      RF_F2=double(),
+                      RF_F3=double(),
+                      RF_F4=double(),
+                      RF_F5=double(),
+                      RF_F6=double(),
+                      RF_F7=double(),
+                      RF_F8=double(),
+                      RF_F9=double(),
+                      RF_F10=double(),
+                      RF_F11=double(),
+                      RF_F12=double(),
+                      MLP_1_ASE=double(),
+                      MLP_2_ASE=double(),
+                      MLP_3_ASE=double(),
+                      MLP_4_ASE=double(),
+                      MLP_5_ASE=double(),
+                      MLP_6_ASE=double(),
+                      MLP_7_ASE=double(),
+                      MLP_8_ASE=double(),
+                      MLP_9_ASE=double(),
+                      MLP_10_ASE=double(),
+                      MLP_11_ASE=double(),
+                      MLP_12_ASE=double(),
+                      MLP_F1=double(),
+                      MLP_F2=double(),
+                      MLP_F3=double(),
+                      MLP_F4=double(),
+                      MLP_F5=double(),
+                      MLP_F6=double(),
+                      MLP_F7=double(),
+                      MLP_F8=double(),
+                      MLP_F9=double(),
+                      MLP_F10=double(),
+                      MLP_F11=double(),
+                      MLP_F12=double(),
+                      ACTUAL_1=double(),
+                      ACTUAL_2=double(),
+                      ACTUAL_3=double(),
+                      ACTUAL_4=double(),
+                      ACTUAL_5=double(),
+                      ACTUAL_6=double(),
+                      ACTUAL_7=double(),
+                      ACTUAL_8=double(),
+                      ACTUAL_9=double(),
+                      ACTUAL_10=double(),
+                      ACTUAL_11=double(),
+                      ACTUAL_12=double(),
+                      AR_F_Tally=double(),
+                      AR_F_Conclusion=double(),
+                      ARI_F_Tally=double(),
+                      ARI_F_Conclusion=double(),
+                      ARIS_F_Tally=double(),
+                      ARIS_F_Conclusion=double(),
                       stringsAsFactors = FALSE)
 
 # loop through sample combinations
@@ -336,10 +549,6 @@ for(i in 1:1) {
   # Augmented Dickey-Fuller
   adf=tseries::adf.test(temp1$STD_Cases)
   results[i,"ADF"] = adf$p.value
-  
-  # Phillips-Perron
-  pp=tseries::pp.test(temp1$STD_Cases)
-  results[i,"PP"] = pp$p.value
   
   # Kwiatkowski-Phillips-Schmidt-Shin
   kpss=tseries::kpss.test(temp1$STD_Cases)
@@ -420,6 +629,18 @@ for(i in 1:1) {
   results[i,paste0("EqualMeans_10_ASE")] = WindowedASE10
   results[i,paste0("EqualMeans_11_ASE")] = WindowedASE11
   results[i,paste0("EqualMeans_12_ASE")] = WindowedASE12
+  results[i,paste0("EqualMeans_F1")] = model0_mean  
+  results[i,paste0("EqualMeans_F2")] = model0_mean  
+  results[i,paste0("EqualMeans_F3")] = model0_mean  
+  results[i,paste0("EqualMeans_F4")] = model0_mean  
+  results[i,paste0("EqualMeans_F5")] = model0_mean  
+  results[i,paste0("EqualMeans_F6")] = model0_mean  
+  results[i,paste0("EqualMeans_F7")] = model0_mean  
+  results[i,paste0("EqualMeans_F8")] = model0_mean  
+  results[i,paste0("EqualMeans_F9")] = model0_mean  
+  results[i,paste0("EqualMeans_F10")] = model0_mean  
+  results[i,paste0("EqualMeans_F11")] = model0_mean  
+  results[i,paste0("EqualMeans_F12")] = model0_mean  
 
   #AR Model
   
@@ -441,7 +662,13 @@ for(i in 1:1) {
   {
     sink("file")
     model1 = invisible(aic.wge(temp1$STD_Cases[k:(k+(trainingSize-1))],q=0,type="aic"))
-    model1_est = invisible(est.ar.wge(temp1$STD_Cases[k:(k+(trainingSize-1))],p=model1$p))
+    model1 = invisible(aic.wge(temp1$STD_Cases[k:(k+(trainingSize-1))],q=0,type="aic"))
+    if (model1$p == 0){
+      newphi = 1
+    } else {
+      newphi = model1$p
+    } 
+    model1_est = invisible(est.ar.wge(temp1$STD_Cases[k:(k+(trainingSize-1))],p=newphi))
     forecasts = fore.aruma.wge(temp1$STD_Cases[k:(k+(trainingSize-1))],phi = model1_est$phi, theta = 0, s = 0, d = 0,n.ahead = j,plot=FALSE)
 
     ASEHolder1[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 1 - 1)] - forecasts$f[1:1])^2)
@@ -482,11 +709,24 @@ for(i in 1:1) {
   results[i,paste0("AR_5_ASE")] = WindowedASE5
   results[i,paste0("AR_6_ASE")] = WindowedASE6
   results[i,paste0("AR_7_ASE")] = WindowedASE7
-  results[i,paste0("AA_8_ASE")] = WindowedASE8
+  results[i,paste0("AR_8_ASE")] = WindowedASE8
   results[i,paste0("AR_9_ASE")] = WindowedASE9
   results[i,paste0("AR_10_ASE")] = WindowedASE10
   results[i,paste0("AR_11_ASE")] = WindowedASE11
   results[i,paste0("AR_12_ASE")] = WindowedASE12
+  results[i,paste0("AR_F1")] = forecasts$f[1]  
+  results[i,paste0("AR_F2")] = forecasts$f[2]   
+  results[i,paste0("AR_F3")] = forecasts$f[3]   
+  results[i,paste0("AR_F4")] = forecasts$f[4]   
+  results[i,paste0("AR_F5")] = forecasts$f[5]   
+  results[i,paste0("AR_F6")] = forecasts$f[6]   
+  results[i,paste0("AR_F7")] = forecasts$f[7]   
+  results[i,paste0("AR_F8")] = forecasts$f[8]   
+  results[i,paste0("AR_F9")] = forecasts$f[9]   
+  results[i,paste0("AR_F10")] = forecasts$f[10]   
+  results[i,paste0("AR_F11")] = forecasts$f[11]   
+  results[i,paste0("AR_F12")] = forecasts$f[12]  
+
   
   #ARMA Model
   
@@ -553,6 +793,19 @@ for(i in 1:1) {
   results[i,paste0("ARMA_10_ASE")] = WindowedASE10
   results[i,paste0("ARMA_11_ASE")] = WindowedASE11
   results[i,paste0("ARMA_12_ASE")] = WindowedASE12
+  results[i,paste0("ARMA_F1")] = forecasts$f[1]  
+  results[i,paste0("ARMA_F2")] = forecasts$f[2]   
+  results[i,paste0("ARMA_F3")] = forecasts$f[3]   
+  results[i,paste0("ARMA_F4")] = forecasts$f[4]   
+  results[i,paste0("ARMA_F5")] = forecasts$f[5]   
+  results[i,paste0("ARMA_F6")] = forecasts$f[6]   
+  results[i,paste0("ARMA_F7")] = forecasts$f[7]   
+  results[i,paste0("ARMA_F8")] = forecasts$f[8]   
+  results[i,paste0("ARMA_F9")] = forecasts$f[9]   
+  results[i,paste0("ARMA_F10")] = forecasts$f[10]   
+  results[i,paste0("ARMA_F11")] = forecasts$f[11]   
+  results[i,paste0("ARMA_F12")] = forecasts$f[12]  
+
   
   
   #ARIMA Model with q=0 and d=1
@@ -623,6 +876,19 @@ for(i in 1:1) {
   results[i,paste0("ARI_10_ASE")] = WindowedASE10
   results[i,paste0("ARI_11_ASE")] = WindowedASE11
   results[i,paste0("ARI_12_ASE")] = WindowedASE12
+  results[i,paste0("ARI_F1")] = forecasts$f[1]  
+  results[i,paste0("ARI_F2")] = forecasts$f[2]   
+  results[i,paste0("ARI_F3")] = forecasts$f[3]   
+  results[i,paste0("ARI_F4")] = forecasts$f[4]   
+  results[i,paste0("ARI_F5")] = forecasts$f[5]   
+  results[i,paste0("ARI_F6")] = forecasts$f[6]   
+  results[i,paste0("ARI_F7")] = forecasts$f[7]   
+  results[i,paste0("ARI_F8")] = forecasts$f[8]   
+  results[i,paste0("ARI_F9")] = forecasts$f[9]   
+  results[i,paste0("ARI_F10")] = forecasts$f[10]   
+  results[i,paste0("ARI_F11")] = forecasts$f[11]   
+  results[i,paste0("ARI_F12")] = forecasts$f[12]
+
   
   #ARIMA Model with d=1
   nulldev()
@@ -691,6 +957,19 @@ for(i in 1:1) {
   results[i,paste0("ARIMA_10_ASE")] = WindowedASE10
   results[i,paste0("ARIMA_11_ASE")] = WindowedASE11
   results[i,paste0("ARIMA_12_ASE")] = WindowedASE12
+  results[i,paste0("ARIMA_F1")] = forecasts$f[1]  
+  results[i,paste0("ARIMA_F2")] = forecasts$f[2]   
+  results[i,paste0("ARIMA_F3")] = forecasts$f[3]   
+  results[i,paste0("ARIMA_F4")] = forecasts$f[4]   
+  results[i,paste0("ARIMA_F5")] = forecasts$f[5]   
+  results[i,paste0("ARIMA_F6")] = forecasts$f[6]   
+  results[i,paste0("ARIMA_F7")] = forecasts$f[7]   
+  results[i,paste0("ARIMA_F8")] = forecasts$f[8]   
+  results[i,paste0("ARIMA_F9")] = forecasts$f[9]   
+  results[i,paste0("ARIMA_F10")] = forecasts$f[10]   
+  results[i,paste0("ARIMA_F11")] = forecasts$f[11]   
+  results[i,paste0("ARIMA_F12")] = forecasts$f[12]
+
   
  
 #ARIMA Model with q=0 and S=12
@@ -766,6 +1045,19 @@ for(i in 1:1) {
   results[i,paste0("ARI_S12_10_ASE")] = WindowedASE10
   results[i,paste0("ARI_S12_11_ASE")] = WindowedASE11
   results[i,paste0("ARI_S12_12_ASE")] = WindowedASE12
+  results[i,paste0("ARI_S12_F1")] = forecasts$f[1]  
+  results[i,paste0("ARI_S12_F2")] = forecasts$f[2]   
+  results[i,paste0("ARI_S12_F3")] = forecasts$f[3]   
+  results[i,paste0("ARI_S12_F4")] = forecasts$f[4]   
+  results[i,paste0("ARI_S12_F5")] = forecasts$f[5]   
+  results[i,paste0("ARI_S12_F6")] = forecasts$f[6]   
+  results[i,paste0("ARI_S12_F7")] = forecasts$f[7]   
+  results[i,paste0("ARI_S12_F8")] = forecasts$f[8]   
+  results[i,paste0("ARI_S12_F9")] = forecasts$f[9]   
+  results[i,paste0("ARI_S12_F10")] = forecasts$f[10]   
+  results[i,paste0("ARI_S12_F11")] = forecasts$f[11]   
+  results[i,paste0("ARI_S12_F12")] = forecasts$f[12]   
+
   
   
   #ARIMA Model with S=12
@@ -835,8 +1127,189 @@ for(i in 1:1) {
   results[i,paste0("ARIMA_S12_10_ASE")] = WindowedASE10
   results[i,paste0("ARIMA_S12_11_ASE")] = WindowedASE11
   results[i,paste0("ARIMA_S12_12_ASE")] = WindowedASE12
+  results[i,paste0("ARIMA_S12_F1")] = forecasts$f[1]  
+  results[i,paste0("ARIMA_S12_F2")] = forecasts$f[2]   
+  results[i,paste0("ARIMA_S12_F3")] = forecasts$f[3]   
+  results[i,paste0("ARIMA_S12_F4")] = forecasts$f[4]   
+  results[i,paste0("ARIMA_S12_F5")] = forecasts$f[5]   
+  results[i,paste0("ARIMA_S12_F6")] = forecasts$f[6]   
+  results[i,paste0("ARIMA_S12_F7")] = forecasts$f[7]   
+  results[i,paste0("ARIMA_S12_F8")] = forecasts$f[8]   
+  results[i,paste0("ARIMA_S12_F9")] = forecasts$f[9]   
+  results[i,paste0("ARIMA_S12_F10")] = forecasts$f[10]   
+  results[i,paste0("ARIMA_S12_F11")] = forecasts$f[11]   
+  results[i,paste0("ARIMA_S12_F12")] = forecasts$f[12]   
 
   
+  
+  #Random Forest
+  trainingSize = 60
+  ASEHolder1 = numeric()
+  ASEHolder2 = numeric()
+  ASEHolder3 = numeric()
+  ASEHolder4 = numeric()
+  ASEHolder5 = numeric()
+  ASEHolder6 = numeric()
+  ASEHolder7 = numeric()
+  ASEHolder8 = numeric()
+  ASEHolder9 = numeric()
+  ASEHolder10 = numeric()
+  ASEHolder11 = numeric()
+  ASEHolder12 = numeric()
+  
+  for( k in 1:(84-(trainingSize + j) + 1))
+  {
+    sink("file")
+   
+    forecasts <- rf_ts(j, temp1[k:(k+(trainingSize-1)),], FALSE)
+    
+    ASEHolder1[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 1 - 1)] - forecasts$forecast[1:1])^2)
+    ASEHolder2[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 2 - 1)] - forecasts$forecast[1:2])^2)
+    ASEHolder3[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 3 - 1)] - forecasts$forecast[1:3])^2)
+    ASEHolder4[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 4 - 1)] - forecasts$forecast[1:4])^2)
+    ASEHolder5[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 5 - 1)] - forecasts$forecast[1:5])^2)
+    ASEHolder6[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 6 - 1)] - forecasts$forecast[1:6])^2)
+    ASEHolder7[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 7 - 1)] - forecasts$forecast[1:7])^2)
+    ASEHolder8[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 8 - 1)] - forecasts$forecast[1:8])^2)
+    ASEHolder9[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 9 - 1)] - forecasts$forecast[1:9])^2)
+    ASEHolder10[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 10 - 1)] - forecasts$forecast[1:10])^2)
+    ASEHolder11[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 11 - 1)] - forecasts$forecast[1:11])^2)
+    ASEHolder12[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 12 - 1)] - forecasts$forecast[1:12])^2)
+    sink()
+    
+    assign(paste("RF_Results_",k,sep=""),(temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + j - 1)] - forecasts$forecast)^2)
+
+  }
+  
+  WindowedASE1 = mean(ASEHolder1)
+  WindowedASE2 = mean(ASEHolder2)
+  WindowedASE3 = mean(ASEHolder3)
+  WindowedASE4 = mean(ASEHolder4)
+  WindowedASE5 = mean(ASEHolder5)
+  WindowedASE6 = mean(ASEHolder6)
+  WindowedASE7 = mean(ASEHolder7)
+  WindowedASE8 = mean(ASEHolder8)
+  WindowedASE9 = mean(ASEHolder9)
+  WindowedASE10 = mean(ASEHolder10)
+  WindowedASE11 = mean(ASEHolder11)
+  WindowedASE12 = mean(ASEHolder12)
+  results[i,paste0("RF_1_ASE")] = WindowedASE1
+  results[i,paste0("RF_2_ASE")] = WindowedASE2
+  results[i,paste0("RF_3_ASE")] = WindowedASE3
+  results[i,paste0("RF_4_ASE")] = WindowedASE4
+  results[i,paste0("RF_5_ASE")] = WindowedASE5
+  results[i,paste0("RF_6_ASE")] = WindowedASE6
+  results[i,paste0("RF_7_ASE")] = WindowedASE7
+  results[i,paste0("RF_8_ASE")] = WindowedASE8
+  results[i,paste0("RF_9_ASE")] = WindowedASE9
+  results[i,paste0("RF_10_ASE")] = WindowedASE10
+  results[i,paste0("RF_11_ASE")] = WindowedASE11
+  results[i,paste0("RF_12_ASE")] = WindowedASE12
+  results[i,paste0("RF_F1")] = forecasts$forecast[1]  
+  results[i,paste0("RF_F2")] = forecasts$forecast[2]   
+  results[i,paste0("RF_F3")] = forecasts$forecast[3]   
+  results[i,paste0("RF_F4")] = forecasts$forecast[4]   
+  results[i,paste0("RF_F5")] = forecasts$forecast[5]   
+  results[i,paste0("RF_F6")] = forecasts$forecast[6]   
+  results[i,paste0("RF_F7")] = forecasts$forecast[7]   
+  results[i,paste0("RF_F8")] = forecasts$forecast[8]   
+  results[i,paste0("RF_F9")] = forecasts$forecast[9]   
+  results[i,paste0("RF_F10")] = forecasts$forecast[10]   
+  results[i,paste0("RF_F11")] = forecasts$forecast[11]   
+  results[i,paste0("RF_F12")] = forecasts$forecast[12]   
+
+  
+  
+  # MLP
+  trainingSize = 60
+  ASEHolder1 = numeric()
+  ASEHolder2 = numeric()
+  ASEHolder3 = numeric()
+  ASEHolder4 = numeric()
+  ASEHolder5 = numeric()
+  ASEHolder6 = numeric()
+  ASEHolder7 = numeric()
+  ASEHolder8 = numeric()
+  ASEHolder9 = numeric()
+  ASEHolder10 = numeric()
+  ASEHolder11 = numeric()
+  ASEHolder12 = numeric()
+  
+  for( k in 1:(84-(trainingSize + j) + 1))
+  {
+    sink("file")
+
+    forecasts <- nnc(temp1$STD_Cases[k:(k+(trainingSize-1))], j, 10, c(5, 10, 15, 5), FALSE)
+    
+    ASEHolder1[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 1 - 1)] - forecasts$forecast[1:1])^2)
+    ASEHolder2[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 2 - 1)] - forecasts$forecast[1:2])^2)
+    ASEHolder3[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 3 - 1)] - forecasts$forecast[1:3])^2)
+    ASEHolder4[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 4 - 1)] - forecasts$forecast[1:4])^2)
+    ASEHolder5[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 5 - 1)] - forecasts$forecast[1:5])^2)
+    ASEHolder6[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 6 - 1)] - forecasts$forecast[1:6])^2)
+    ASEHolder7[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 7 - 1)] - forecasts$forecast[1:7])^2)
+    ASEHolder8[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 8 - 1)] - forecasts$forecast[1:8])^2)
+    ASEHolder9[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 9 - 1)] - forecasts$forecast[1:9])^2)
+    ASEHolder10[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 10 - 1)] - forecasts$forecast[1:10])^2)
+    ASEHolder11[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 11 - 1)] - forecasts$forecast[1:11])^2)
+    ASEHolder12[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 12 - 1)] - forecasts$forecast[1:12])^2)
+    sink()
+    
+    assign(paste("MLP_Results_",k,sep=""),(temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + j - 1)] - forecasts$forecast)^2)
+
+  }
+  
+  WindowedASE1 = mean(ASEHolder1)
+  WindowedASE2 = mean(ASEHolder2)
+  WindowedASE3 = mean(ASEHolder3)
+  WindowedASE4 = mean(ASEHolder4)
+  WindowedASE5 = mean(ASEHolder5)
+  WindowedASE6 = mean(ASEHolder6)
+  WindowedASE7 = mean(ASEHolder7)
+  WindowedASE8 = mean(ASEHolder8)
+  WindowedASE9 = mean(ASEHolder9)
+  WindowedASE10 = mean(ASEHolder10)
+  WindowedASE11 = mean(ASEHolder11)
+  WindowedASE12 = mean(ASEHolder12)
+  results[i,paste0("MLP_1_ASE")] = WindowedASE1
+  results[i,paste0("MLP_2_ASE")] = WindowedASE2
+  results[i,paste0("MLP_3_ASE")] = WindowedASE3
+  results[i,paste0("MLP_4_ASE")] = WindowedASE4
+  results[i,paste0("MLP_5_ASE")] = WindowedASE5
+  results[i,paste0("MLP_6_ASE")] = WindowedASE6
+  results[i,paste0("MLP_7_ASE")] = WindowedASE7
+  results[i,paste0("MLP_8_ASE")] = WindowedASE8
+  results[i,paste0("MLP_9_ASE")] = WindowedASE9
+  results[i,paste0("MLP_10_ASE")] = WindowedASE10
+  results[i,paste0("MLP_11_ASE")] = WindowedASE11
+  results[i,paste0("MLP_12_ASE")] = WindowedASE12
+  results[i,paste0("MLP_F1")] = forecasts$forecast[1]  
+  results[i,paste0("MLP_F2")] = forecasts$forecast[2]   
+  results[i,paste0("MLP_F3")] = forecasts$forecast[3]   
+  results[i,paste0("MLP_F4")] = forecasts$forecast[4]   
+  results[i,paste0("MLP_F5")] = forecasts$forecast[5]   
+  results[i,paste0("MLP_F6")] = forecasts$forecast[6]   
+  results[i,paste0("MLP_F7")] = forecasts$forecast[7]   
+  results[i,paste0("MLP_F8")] = forecasts$forecast[8]   
+  results[i,paste0("MLP_F9")] = forecasts$forecast[9]   
+  results[i,paste0("MLP_F10")] = forecasts$forecast[10]   
+  results[i,paste0("MLP_F11")] = forecasts$forecast[11]   
+  results[i,paste0("MLP_F12")] = forecasts$forecast[12]   
+
+  
+  results[i,paste0("ACTUAL_1")] = temp1$STD_Cases[73]
+  results[i,paste0("ACTUAL_2")] = temp1$STD_Cases[74]
+  results[i,paste0("ACTUAL_3")] = temp1$STD_Cases[75]
+  results[i,paste0("ACTUAL_4")] = temp1$STD_Cases[76]
+  results[i,paste0("ACTUAL_5")] = temp1$STD_Cases[77]
+  results[i,paste0("ACTUAL_6")] = temp1$STD_Cases[78]
+  results[i,paste0("ACTUAL_7")] = temp1$STD_Cases[79]
+  results[i,paste0("ACTUAL_8")] = temp1$STD_Cases[80]
+  results[i,paste0("ACTUAL_9")] = temp1$STD_Cases[81]
+  results[i,paste0("ACTUAL_10")] = temp1$STD_Cases[82]
+  results[i,paste0("ACTUAL_11")] = temp1$STD_Cases[83]
+  results[i,paste0("ACTUAL_12")] = temp1$STD_Cases[84]
+
   
   #graph ASEs for each Model
   EqualMeans_Results <- rbind(EqualMeans_Results_1,EqualMeans_Results_2,EqualMeans_Results_3,EqualMeans_Results_4,EqualMeans_Results_5,EqualMeans_Results_6,
@@ -860,6 +1333,12 @@ for(i in 1:1) {
   
   ARIMAS_Results <- rbind(ARIMAS_Results_1,ARIMAS_Results_2,ARIMAS_Results_3,ARIMAS_Results_4,ARIMAS_Results_5,ARIMAS_Results_6,ARIMAS_Results_7,ARIMAS_Results_8,
                           ARIMAS_Results_9,ARIMAS_Results_10,ARIMAS_Results_11,ARIMAS_Results_12,ARIMAS_Results_13)
+  
+  RF_Results <- rbind(RF_Results_1,RF_Results_2,RF_Results_3,RF_Results_4,RF_Results_5,RF_Results_6,RF_Results_7,RF_Results_8,
+                        RF_Results_9,RF_Results_10,RF_Results_11,RF_Results_12,RF_Results_13)
+    
+  MLP_Results <- rbind(MLP_Results_1,MLP_Results_2,MLP_Results_3,MLP_Results_4,MLP_Results_5,MLP_Results_6,MLP_Results_7,MLP_Results_8,
+                      MLP_Results_9,MLP_Results_10,MLP_Results_11,MLP_Results_12,MLP_Results_13)
       
   EqualMeans_Means <- colMeans(EqualMeans_Results)
   AR_Means <- colMeans(AR_Results)
@@ -868,10 +1347,12 @@ for(i in 1:1) {
   ARIMA_Means <- colMeans(ARIMA_Results)
   ARIS_Means <- colMeans(ARIS_Results)
   ARIMAS_Means <- colMeans(ARIMAS_Results)
-  Combined_Means <- data.frame(EqualMeans_Means,AR_Means, ARMA_Means, ARI_Means, ARIMA_Means, ARIS_Means, ARIMAS_Means)
+  RF_Means <- colMeans(RF_Results)
+  MLP_Means <- colMeans(MLP_Results)
+  Combined_Means <- data.frame(EqualMeans_Means,AR_Means, ARMA_Means, ARI_Means, ARIMA_Means, ARIS_Means, ARIMAS_Means,RF_Means,MLP_Means)
   Combined_Means$horizon <- as.numeric(row.names(Combined_Means))
   
-# more colors #59DBF1, #00C590, #73EBAE
+# more colors #73EBAE
   g <- ggplot(data=Combined_Means, aes(horizon)) +
     geom_line(aes(y=EqualMeans_Means, color="Equal Means"),size=1.5) +
     geom_line(aes(y=AR_Means, color="AR"),size=1.5) +
@@ -880,6 +1361,8 @@ for(i in 1:1) {
     geom_line(aes(y=ARIMA_Means, color="ARIMA with d=1"),size=1.5) +
     geom_line(aes(y=ARIS_Means, color="AR with s=12"),size=1.5) +
     geom_line(aes(y=ARIMAS_Means, color="ARIMA with d=0, s=12"),size=1.5) +
+    geom_line(aes(y=RF_Means, color="Random Forest"),size=1.5) +
+    geom_line(aes(y=MLP_Means, color="MLP"),size=1.5) +
     scale_color_manual(values = c(
       'Equal Means' = '#004159',
       'AR' = '#65A8C4',
@@ -887,7 +1370,9 @@ for(i in 1:1) {
       'AR with d=1' = '#9A93EC',
       'ARIMA with d=1' = '#0052A5',
       'AR with s=12' = '#413BF7',
-      'ARIMA with d=0, s=12' = '#00ADCE'
+      'ARIMA with d=0, s=12' = '#00ADCE',
+      'Random Forest' = '#59DBF1',
+      'MLP' = '#00C590'
     )) +
     labs(color='Models') +
     scale_x_continuous(breaks=seq(0,13,1)) +
@@ -929,8 +1414,16 @@ for(i in 1:1) {
     F = ms_model/ms_ar
     AR_p_value = pf(F,df_model,AR_DF,lower.tail=FALSE)
     AR_p_tally = sum(AR_p_value[,1]<.05)
+    results[i,"AR_F_Tally"] = AR_p_tally
     
-    
+    if (AR_p_tally >= 9){
+      results[i,"AR_F_Conclusion"] = "Different"
+    } else if (AR_p_tally <= 4){
+      results[i,"AR_F_Conclusion"] = "Same"
+    } else {
+       results[i,"AR_F_Conclusion"] = "Inconclusive"
+    }
+
     df_model = EqualMeans_DF - ARI_DF
     ss_model = EqualMeans_Results - ARI_Results
     ms_model = ss_model/df_model
@@ -938,7 +1431,16 @@ for(i in 1:1) {
     F = ms_model/ms_ari
     ARI_p_value = pf(F,df_model,ARI_DF,lower.tail=FALSE)
     ARI_p_tally = sum(ARI_p_value[,1]<.05)
+    results[i,"ARI_F_Tally"] = ARI_p_tally
     
+    if (ARI_p_tally >= 9){
+      results[i,"ARI_F_Conclusion"] = "Different"
+    } else if (ARI_p_tally <= 4){
+      results[i,"ARI_F_Conclusion"] = "Same"
+    } else {
+      results[i,"ARI_F_Conclusion"] = "Inconclusive"
+    }
+ 
     df_model = EqualMeans_DF - ARIS_DF
     ss_model = EqualMeans_Results - ARIS_Results
     ms_model = ss_model/df_model
@@ -946,8 +1448,41 @@ for(i in 1:1) {
     F = ms_model/ms_aris
     ARIS_p_value = pf(F,df_model,ARIS_DF,lower.tail=FALSE)
     ARIS_p_tally = sum(ARIS_p_value[,1]<.05)
+    results[i,"ARIS_F_Tally"] = ARIS_p_tally
+    
+    if (ARIS_p_tally >= 9){
+      results[i,"ARIS_F_Conclusion"] = "Different"
+    } else if (ARIS_p_tally <= 4){
+      results[i,"ARIS_F_Conclusion"] = "Same"
+    } else {
+       results[i,"ARIS_F_Conclusion"] = "Inconclusive"
+    }
 
 }
+
+results$winning_1 <- colnames(results[c("EqualMeans_1_ASE","AR_1_ASE","ARMA_1_ASE","ARI_1_ASE","ARIMA_1_ASE","ARI_S12_1_ASE","ARIMA_S12_1_ASE","RF_1_ASE","MLP_1_ASE")])[apply(results[c("EqualMeans_1_ASE","AR_1_ASE","ARMA_1_ASE","ARI_1_ASE","ARIMA_1_ASE","ARI_S12_1_ASE","ARIMA_S12_1_ASE","RF_1_ASE","MLP_1_ASE")],1,which.min)]
+
+results$winning_2 <- colnames(results[c("EqualMeans_2_ASE","AR_2_ASE","ARMA_2_ASE","ARI_2_ASE","ARIMA_2_ASE","ARI_S12_2_ASE","ARIMA_S12_2_ASE","RF_2_ASE","MLP_2_ASE")])[apply(results[c("EqualMeans_2_ASE","AR_2_ASE","ARMA_2_ASE","ARI_2_ASE","ARIMA_2_ASE","ARI_S12_2_ASE","ARIMA_S12_2_ASE","RF_2_ASE","MLP_2_ASE")],1,which.min)]
+
+results$winning_3 <- colnames(results[c("EqualMeans_3_ASE","AR_3_ASE","ARMA_3_ASE","ARI_3_ASE","ARIMA_3_ASE","ARI_S12_3_ASE","ARIMA_S12_3_ASE","RF_3_ASE","MLP_3_ASE")])[apply(results[c("EqualMeans_3_ASE","AR_3_ASE","ARMA_3_ASE","ARI_3_ASE","ARIMA_3_ASE","ARI_S12_3_ASE","ARIMA_S12_3_ASE","RF_3_ASE","MLP_3_ASE")],1,which.min)]
+
+results$winning_4 <- colnames(results[c("EqualMeans_4_ASE","AR_4_ASE","ARMA_4_ASE","ARI_4_ASE","ARIMA_4_ASE","ARI_S12_4_ASE","ARIMA_S12_4_ASE","RF_4_ASE","MLP_4_ASE")])[apply(results[c("EqualMeans_4_ASE","AR_4_ASE","ARMA_4_ASE","ARI_4_ASE","ARIMA_4_ASE","ARI_S12_4_ASE","ARIMA_S12_4_ASE","RF_4_ASE","MLP_4_ASE")],1,which.min)]
+
+results$winning_5 <- colnames(results[c("EqualMeans_5_ASE","AR_5_ASE","ARMA_5_ASE","ARI_5_ASE","ARIMA_5_ASE","ARI_S12_5_ASE","ARIMA_S12_5_ASE","RF_5_ASE","MLP_5_ASE")])[apply(results[c("EqualMeans_5_ASE","AR_5_ASE","ARMA_5_ASE","ARI_5_ASE","ARIMA_5_ASE","ARI_S12_5_ASE","ARIMA_S12_5_ASE","RF_5_ASE","MLP_5_ASE")],1,which.min)]
+
+results$winning_6 <- colnames(results[c("EqualMeans_6_ASE","AR_6_ASE","ARMA_6_ASE","ARI_6_ASE","ARIMA_6_ASE","ARI_S12_6_ASE","ARIMA_S12_6_ASE","RF_6_ASE","MLP_6_ASE")])[apply(results[c("EqualMeans_6_ASE","AR_6_ASE","ARMA_6_ASE","ARI_6_ASE","ARIMA_6_ASE","ARI_S12_6_ASE","ARIMA_S12_6_ASE","RF_6_ASE","MLP_6_ASE")],1,which.min)]
+
+results$winning_7 <- colnames(results[c("EqualMeans_7_ASE","AR_7_ASE","ARMA_7_ASE","ARI_7_ASE","ARIMA_7_ASE","ARI_S12_7_ASE","ARIMA_S12_7_ASE","RF_7_ASE","MLP_7_ASE")])[apply(results[c("EqualMeans_7_ASE","AR_7_ASE","ARMA_7_ASE","ARI_7_ASE","ARIMA_7_ASE","ARI_S12_7_ASE","ARIMA_S12_7_ASE","RF_7_ASE","MLP_7_ASE")],1,which.min)]
+
+results$winning_8 <- colnames(results[c("EqualMeans_8_ASE","AR_8_ASE","ARMA_8_ASE","ARI_8_ASE","ARIMA_8_ASE","ARI_S12_8_ASE","ARIMA_S12_8_ASE","RF_8_ASE","MLP_8_ASE")])[apply(results[c("EqualMeans_8_ASE","AR_8_ASE","ARMA_8_ASE","ARI_8_ASE","ARIMA_8_ASE","ARI_S12_8_ASE","ARIMA_S12_8_ASE","RF_8_ASE","MLP_8_ASE")],1,which.min)]
+
+results$winning_9 <- colnames(results[c("EqualMeans_9_ASE","AR_9_ASE","ARMA_9_ASE","ARI_9_ASE","ARIMA_9_ASE","ARI_S12_9_ASE","ARIMA_S12_9_ASE","RF_9_ASE","MLP_9_ASE")])[apply(results[c("EqualMeans_9_ASE","AR_9_ASE","ARMA_9_ASE","ARI_9_ASE","ARIMA_9_ASE","ARI_S12_9_ASE","ARIMA_S12_9_ASE","RF_9_ASE","MLP_9_ASE")],1,which.min)]
+
+results$winning_10 <- colnames(results[c("EqualMeans_10_ASE","AR_10_ASE","ARMA_10_ASE","ARI_10_ASE","ARIMA_10_ASE","ARI_S12_10_ASE","ARIMA_S12_10_ASE","RF_10_ASE","MLP_10_ASE")])[apply(results[c("EqualMeans_10_ASE","AR_10_ASE","ARMA_10_ASE","ARI_10_ASE","ARIMA_10_ASE","ARI_S12_10_ASE","ARIMA_S12_10_ASE","RF_10_ASE","MLP_10_ASE")],1,which.min)]
+
+results$winning_11 <- colnames(results[c("EqualMeans_11_ASE","AR_11_ASE","ARMA_11_ASE","ARI_11_ASE","ARIMA_11_ASE","ARI_S12_11_ASE","ARIMA_S12_11_ASE","RF_11_ASE","MLP_11_ASE")])[apply(results[c("EqualMeans_11_ASE","AR_11_ASE","ARMA_11_ASE","ARI_11_ASE","ARIMA_11_ASE","ARI_S12_11_ASE","ARIMA_S12_11_ASE","RF_11_ASE","MLP_11_ASE")],1,which.min)]
+
+results$winning_12 <- colnames(results[c("EqualMeans_12_ASE","AR_12_ASE","ARMA_12_ASE","ARI_12_ASE","ARIMA_12_ASE","ARI_S12_12_ASE","ARIMA_S12_12_ASE","RF_12_ASE","MLP_12_ASE")])[apply(results[c("EqualMeans_12_ASE","AR_12_ASE","ARMA_12_ASE","ARI_12_ASE","ARIMA_12_ASE","ARI_S12_12_ASE","ARIMA_S12_12_ASE","RF_12_ASE","MLP_12_ASE")],1,which.min)]
 
 formattable(results, align = c("l", rep("r", NCOL(table_a) - 1)))
 
@@ -988,6 +1523,8 @@ str(temp_mean)
 ```
 
 ```{r loop2}
+# this loop is for forcasting all customers individually for one product
+
 z = nrow(combinations)
 results <- data.frame(Product_Type=integer(),
                       Product=character(),
@@ -997,7 +1534,6 @@ results <- data.frame(Product_Type=integer(),
                       ljung_results=character(),
                       top_5_bic=character(),
                       ADF=double(),
-                      PP=double(),
                       KPSS=double(),
                       stationarity_results=character(),
                       EqualMeans_1_ASE=double(),
@@ -1024,6 +1560,30 @@ results <- data.frame(Product_Type=integer(),
                       EqualMeans_F10=double(),
                       EqualMeans_F11=double(),
                       EqualMeans_F12=double(),
+                      AR_1_ASE=double(),
+                      AR_2_ASE=double(),
+                      AR_3_ASE=double(),
+                      AR_4_ASE=double(),
+                      AR_5_ASE=double(),
+                      AR_6_ASE=double(),
+                      AR_7_ASE=double(),
+                      AR_8_ASE=double(),
+                      AR_9_ASE=double(),
+                      AR_10_ASE=double(),
+                      AR_11_ASE=double(),
+                      AR_12_ASE=double(),
+                      AR_F1=double(),
+                      AR_F2=double(),
+                      AR_F3=double(),
+                      AR_F4=double(),
+                      AR_F5=double(),
+                      AR_F6=double(),
+                      AR_F7=double(),
+                      AR_F8=double(),
+                      AR_F9=double(),
+                      AR_F10=double(),
+                      AR_F11=double(),
+                      AR_F12=double(),
                       ARMA_1_ASE=double(),
                       ARMA_2_ASE=double(),
                       ARMA_3_ASE=double(),
@@ -1048,6 +1608,30 @@ results <- data.frame(Product_Type=integer(),
                       ARMA_F10=double(),
                       ARMA_F11=double(),
                       ARMA_F12=double(),
+                      ARI_1_ASE=double(),
+                      ARI_2_ASE=double(),
+                      ARI_3_ASE=double(),
+                      ARI_4_ASE=double(),
+                      ARI_5_ASE=double(),
+                      ARI_6_ASE=double(),
+                      ARI_7_ASE=double(),
+                      ARI_8_ASE=double(),
+                      ARI_9_ASE=double(),
+                      ARI_10_ASE=double(),
+                      ARI_11_ASE=double(),
+                      ARI_12_ASE=double(),
+                      ARI_F1=double(),
+                      ARI_F2=double(),
+                      ARI_F3=double(),
+                      ARI_F4=double(),
+                      ARI_F5=double(),
+                      ARI_F6=double(),
+                      ARI_F7=double(),
+                      ARI_F8=double(),
+                      ARI_F9=double(),
+                      ARI_F10=double(),
+                      ARI_F11=double(),
+                      ARI_F12=double(),
                       ARIMA_1_ASE=double(),
                       ARIMA_2_ASE=double(),
                       ARIMA_3_ASE=double(),
@@ -1072,6 +1656,30 @@ results <- data.frame(Product_Type=integer(),
                       ARIMA_F10=double(),
                       ARIMA_F11=double(),
                       ARIMA_F12=double(),
+                      ARI_S12_1_ASE=double(),
+                      ARI_S12_2_ASE=double(),
+                      ARI_S12_3_ASE=double(),
+                      ARI_S12_4_ASE=double(),
+                      ARI_S12_5_ASE=double(),
+                      ARI_S12_6_ASE=double(),
+                      ARI_S12_7_ASE=double(),
+                      ARI_S12_8_ASE=double(),
+                      ARI_S12_9_ASE=double(),
+                      ARI_S12_10_ASE=double(),
+                      ARI_S12_11_ASE=double(),
+                      ARI_S12_12_ASE=double(),
+                      ARI_S12_F1=double(),
+                      ARI_S12_F2=double(),
+                      ARI_S12_F3=double(),
+                      ARI_S12_F4=double(),
+                      ARI_S12_F5=double(),
+                      ARI_S12_F6=double(),
+                      ARI_S12_F7=double(),
+                      ARI_S12_F8=double(),
+                      ARI_S12_F9=double(),
+                      ARI_S12_F10=double(),
+                      ARI_S12_F11=double(),
+                      ARI_S12_F12=double(),
                       ARIMA_S12_1_ASE=double(),
                       ARIMA_S12_2_ASE=double(),
                       ARIMA_S12_3_ASE=double(),
@@ -1096,6 +1704,54 @@ results <- data.frame(Product_Type=integer(),
                       ARIMA_S12_F10=double(),
                       ARIMA_S12_F11=double(),
                       ARIMA_S12_F12=double(),
+                      RF_1_ASE=double(),
+                      RF_2_ASE=double(),
+                      RF_3_ASE=double(),
+                      RF_4_ASE=double(),
+                      RF_5_ASE=double(),
+                      RF_6_ASE=double(),
+                      RF_7_ASE=double(),
+                      RF_8_ASE=double(),
+                      RF_9_ASE=double(),
+                      RF_10_ASE=double(),
+                      RF_11_ASE=double(),
+                      RF_12_ASE=double(),
+                      RF_F1=double(),
+                      RF_F2=double(),
+                      RF_F3=double(),
+                      RF_F4=double(),
+                      RF_F5=double(),
+                      RF_F6=double(),
+                      RF_F7=double(),
+                      RF_F8=double(),
+                      RF_F9=double(),
+                      RF_F10=double(),
+                      RF_F11=double(),
+                      RF_F12=double(),
+                      MLP_1_ASE=double(),
+                      MLP_2_ASE=double(),
+                      MLP_3_ASE=double(),
+                      MLP_4_ASE=double(),
+                      MLP_5_ASE=double(),
+                      MLP_6_ASE=double(),
+                      MLP_7_ASE=double(),
+                      MLP_8_ASE=double(),
+                      MLP_9_ASE=double(),
+                      MLP_10_ASE=double(),
+                      MLP_11_ASE=double(),
+                      MLP_12_ASE=double(),
+                      MLP_F1=double(),
+                      MLP_F2=double(),
+                      MLP_F3=double(),
+                      MLP_F4=double(),
+                      MLP_F5=double(),
+                      MLP_F6=double(),
+                      MLP_F7=double(),
+                      MLP_F8=double(),
+                      MLP_F9=double(),
+                      MLP_F10=double(),
+                      MLP_F11=double(),
+                      MLP_F12=double(),
                       ACTUAL_1=double(),
                       ACTUAL_2=double(),
                       ACTUAL_3=double(),
@@ -1108,6 +1764,12 @@ results <- data.frame(Product_Type=integer(),
                       ACTUAL_10=double(),
                       ACTUAL_11=double(),
                       ACTUAL_12=double(),
+                      AR_F_Tally=double(),
+                      AR_F_Conclusion=double(),
+                      ARI_F_Tally=double(),
+                      ARI_F_Conclusion=double(),
+                      ARIS_F_Tally=double(),
+                      ARIS_F_Conclusion=double(),
                       stringsAsFactors = FALSE)
 
 # loop through sample combinations
@@ -1179,10 +1841,6 @@ for(i in 1:z) {
   adf=tseries::adf.test(temp1$STD_Cases)
   results[i,"ADF"] = adf$p.value
   
-  # Phillips-Perron
-  pp=tseries::pp.test(temp1$STD_Cases)
-  results[i,"PP"] = pp$p.value
-  
   # Kwiatkowski-Phillips-Schmidt-Shin
   kpss=tseries::kpss.test(temp1$STD_Cases)
   results[i,"KPSS"] = kpss$p.value
@@ -1232,10 +1890,10 @@ for(i in 1:z) {
     ASEHolder10[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 10 - 1)] - model0_mean)^2)
     ASEHolder11[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 11 - 1)] - model0_mean)^2)
     ASEHolder12[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 12 - 1)] - model0_mean)^2)
-    
     sink()
     
     assign(paste("EqualMeans_Results_",k,sep=""),(temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + j - 1)] - model0_mean)^2)
+    assign(paste("EqualMeans_DF_",k,sep=""),trainingSize-1)
   }
   
   WindowedASE1 = mean(ASEHolder1)
@@ -1262,7 +1920,6 @@ for(i in 1:z) {
   results[i,paste0("EqualMeans_10_ASE")] = WindowedASE10
   results[i,paste0("EqualMeans_11_ASE")] = WindowedASE11
   results[i,paste0("EqualMeans_12_ASE")] = WindowedASE12
-  
   results[i,paste0("EqualMeans_F1")] = model0_mean  
   results[i,paste0("EqualMeans_F2")] = model0_mean  
   results[i,paste0("EqualMeans_F3")] = model0_mean  
@@ -1275,8 +1932,92 @@ for(i in 1:z) {
   results[i,paste0("EqualMeans_F10")] = model0_mean  
   results[i,paste0("EqualMeans_F11")] = model0_mean  
   results[i,paste0("EqualMeans_F12")] = model0_mean  
-  
 
+  #AR Model
+  
+  trainingSize = 60
+  ASEHolder1 = numeric()
+  ASEHolder2 = numeric()
+  ASEHolder3 = numeric()
+  ASEHolder4 = numeric()
+  ASEHolder5 = numeric()
+  ASEHolder6 = numeric()
+  ASEHolder7 = numeric()
+  ASEHolder8 = numeric()
+  ASEHolder9 = numeric()
+  ASEHolder10 = numeric()
+  ASEHolder11 = numeric()
+  ASEHolder12 = numeric()
+  
+  for( k in 1:(84-(trainingSize + j) + 1))
+  {
+    sink("file")
+    model1 = invisible(aic.wge(temp1$STD_Cases[k:(k+(trainingSize-1))],q=0,type="aic"))
+    if (model1$p == 0){
+      newphi = 1
+    } else {
+      newphi = model1$p
+    } 
+    model1_est = invisible(est.ar.wge(temp1$STD_Cases[k:(k+(trainingSize-1))],p=newphi))
+    forecasts = fore.aruma.wge(temp1$STD_Cases[k:(k+(trainingSize-1))],phi = model1_est$phi, theta = 0, s = 0, d = 0,n.ahead = j,plot=FALSE)
+
+    ASEHolder1[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 1 - 1)] - forecasts$f[1:1])^2)
+    ASEHolder2[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 2 - 1)] - forecasts$f[1:2])^2)
+    ASEHolder3[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 3 - 1)] - forecasts$f[1:3])^2)
+    ASEHolder4[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 4 - 1)] - forecasts$f[1:4])^2)
+    ASEHolder5[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 5 - 1)] - forecasts$f[1:5])^2)
+    ASEHolder6[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 6 - 1)] - forecasts$f[1:6])^2)
+    ASEHolder7[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 7 - 1)] - forecasts$f[1:7])^2)
+    ASEHolder8[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 8 - 1)] - forecasts$f[1:8])^2)
+    ASEHolder9[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 9 - 1)] - forecasts$f[1:9])^2)
+    ASEHolder10[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 10 - 1)] - forecasts$f[1:10])^2)
+    ASEHolder11[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 11 - 1)] - forecasts$f[1:11])^2)
+    ASEHolder12[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 12 - 1)] - forecasts$f[1:12])^2)
+    sink()
+    
+    assign(paste("AR_Results_",k,sep=""),(temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + j - 1)] - forecasts$f)^2)
+    assign(paste("AR_DF_",k,sep=""),trainingSize-(model1$p+1))
+
+  }
+  
+  WindowedASE1 = mean(ASEHolder1)
+  WindowedASE2 = mean(ASEHolder2)
+  WindowedASE3 = mean(ASEHolder3)
+  WindowedASE4 = mean(ASEHolder4)
+  WindowedASE5 = mean(ASEHolder5)
+  WindowedASE6 = mean(ASEHolder6)
+  WindowedASE7 = mean(ASEHolder7)
+  WindowedASE8 = mean(ASEHolder8)
+  WindowedASE9 = mean(ASEHolder9)
+  WindowedASE10 = mean(ASEHolder10)
+  WindowedASE11 = mean(ASEHolder11)
+  WindowedASE12 = mean(ASEHolder12)
+  results[i,paste0("AR_1_ASE")] = WindowedASE1
+  results[i,paste0("AR_2_ASE")] = WindowedASE2
+  results[i,paste0("AR_3_ASE")] = WindowedASE3
+  results[i,paste0("AR_4_ASE")] = WindowedASE4
+  results[i,paste0("AR_5_ASE")] = WindowedASE5
+  results[i,paste0("AR_6_ASE")] = WindowedASE6
+  results[i,paste0("AR_7_ASE")] = WindowedASE7
+  results[i,paste0("AR_8_ASE")] = WindowedASE8
+  results[i,paste0("AR_9_ASE")] = WindowedASE9
+  results[i,paste0("AR_10_ASE")] = WindowedASE10
+  results[i,paste0("AR_11_ASE")] = WindowedASE11
+  results[i,paste0("AR_12_ASE")] = WindowedASE12
+  results[i,paste0("AR_F1")] = forecasts$f[1]  
+  results[i,paste0("AR_F2")] = forecasts$f[2]   
+  results[i,paste0("AR_F3")] = forecasts$f[3]   
+  results[i,paste0("AR_F4")] = forecasts$f[4]   
+  results[i,paste0("AR_F5")] = forecasts$f[5]   
+  results[i,paste0("AR_F6")] = forecasts$f[6]   
+  results[i,paste0("AR_F7")] = forecasts$f[7]   
+  results[i,paste0("AR_F8")] = forecasts$f[8]   
+  results[i,paste0("AR_F9")] = forecasts$f[9]   
+  results[i,paste0("AR_F10")] = forecasts$f[10]   
+  results[i,paste0("AR_F11")] = forecasts$f[11]   
+  results[i,paste0("AR_F12")] = forecasts$f[12]  
+
+  
   #ARMA Model
   
   trainingSize = 60
@@ -1312,7 +2053,6 @@ for(i in 1:z) {
     ASEHolder10[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 10 - 1)] - forecasts$f[1:10])^2)
     ASEHolder11[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 11 - 1)] - forecasts$f[1:11])^2)
     ASEHolder12[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 12 - 1)] - forecasts$f[1:12])^2)
-    
     sink()
     
     assign(paste("ARMA_Results_",k,sep=""),(temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + j - 1)] - forecasts$f)^2)
@@ -1343,7 +2083,6 @@ for(i in 1:z) {
   results[i,paste0("ARMA_10_ASE")] = WindowedASE10
   results[i,paste0("ARMA_11_ASE")] = WindowedASE11
   results[i,paste0("ARMA_12_ASE")] = WindowedASE12
-  
   results[i,paste0("ARMA_F1")] = forecasts$f[1]  
   results[i,paste0("ARMA_F2")] = forecasts$f[2]   
   results[i,paste0("ARMA_F3")] = forecasts$f[3]   
@@ -1355,7 +2094,91 @@ for(i in 1:z) {
   results[i,paste0("ARMA_F9")] = forecasts$f[9]   
   results[i,paste0("ARMA_F10")] = forecasts$f[10]   
   results[i,paste0("ARMA_F11")] = forecasts$f[11]   
-  results[i,paste0("ARMA_F12")] = forecasts$f[12]   
+  results[i,paste0("ARMA_F12")] = forecasts$f[12]  
+
+  
+  
+  #ARIMA Model with q=0 and d=1
+  nulldev()
+  temp2 = artrans.wge(temp1$STD_Cases,1)
+  dev.off()
+  
+  trainingSize = 60
+  ASEHolder1 = numeric()
+  ASEHolder2 = numeric()
+  ASEHolder3 = numeric()
+  ASEHolder4 = numeric()
+  ASEHolder5 = numeric()
+  ASEHolder6 = numeric()
+  ASEHolder7 = numeric()
+  ASEHolder8 = numeric()
+  ASEHolder9 = numeric()
+  ASEHolder10 = numeric()
+  ASEHolder11 = numeric()
+  ASEHolder12 = numeric()
+    
+  for( k in 1:(84-(trainingSize + j) + 1))
+  {
+    sink("file")
+    model1 = invisible(aic.wge(temp2[k:(k+(trainingSize-1-1))],q=0,type="aic"))
+    model1_est = invisible(est.ar.wge(temp2[k:(k+(trainingSize-1-1))],p=model1$p))
+    forecasts = fore.aruma.wge(temp1$STD_Cases[k:(k+(trainingSize-1))],phi = model1_est$phi, theta = 0, s = 0, d = 1,n.ahead = j,plot=FALSE)
+    ASEHolder1[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 1 - 1)] - forecasts$f[1:1])^2)
+    ASEHolder2[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 2 - 1)] - forecasts$f[1:2])^2)
+    ASEHolder3[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 3 - 1)] - forecasts$f[1:3])^2)
+    ASEHolder4[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 4 - 1)] - forecasts$f[1:4])^2)
+    ASEHolder5[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 5 - 1)] - forecasts$f[1:5])^2)
+    ASEHolder6[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 6 - 1)] - forecasts$f[1:6])^2)
+    ASEHolder7[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 7 - 1)] - forecasts$f[1:7])^2)
+    ASEHolder8[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 8 - 1)] - forecasts$f[1:8])^2)
+    ASEHolder9[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 9 - 1)] - forecasts$f[1:9])^2)
+    ASEHolder10[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 10 - 1)] - forecasts$f[1:10])^2)
+    ASEHolder11[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 11 - 1)] - forecasts$f[1:11])^2)
+    ASEHolder12[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 12 - 1)] - forecasts$f[1:12])^2)
+    sink()
+    
+    assign(paste("ARI_Results_",k,sep=""),(temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + j - 1)] - forecasts$f)^2)
+    assign(paste("ARI_DF_",k,sep=""),trainingSize-(model1$p+1))
+
+  }
+  
+  WindowedASE1 = mean(ASEHolder1)
+  WindowedASE2 = mean(ASEHolder2)
+  WindowedASE3 = mean(ASEHolder3)
+  WindowedASE4 = mean(ASEHolder4)
+  WindowedASE5 = mean(ASEHolder5)
+  WindowedASE6 = mean(ASEHolder6)
+  WindowedASE7 = mean(ASEHolder7)
+  WindowedASE8 = mean(ASEHolder8)
+  WindowedASE9 = mean(ASEHolder9)
+  WindowedASE10 = mean(ASEHolder10)
+  WindowedASE11 = mean(ASEHolder11)
+  WindowedASE12 = mean(ASEHolder12)
+  results[i,paste0("ARI_1_ASE")] = WindowedASE1
+  results[i,paste0("ARI_2_ASE")] = WindowedASE2
+  results[i,paste0("ARI_3_ASE")] = WindowedASE3
+  results[i,paste0("ARI_4_ASE")] = WindowedASE4
+  results[i,paste0("ARI_5_ASE")] = WindowedASE5
+  results[i,paste0("ARI_6_ASE")] = WindowedASE6
+  results[i,paste0("ARI_7_ASE")] = WindowedASE7
+  results[i,paste0("ARI_8_ASE")] = WindowedASE8
+  results[i,paste0("ARI_9_ASE")] = WindowedASE9
+  results[i,paste0("ARI_10_ASE")] = WindowedASE10
+  results[i,paste0("ARI_11_ASE")] = WindowedASE11
+  results[i,paste0("ARI_12_ASE")] = WindowedASE12
+  results[i,paste0("ARI_F1")] = forecasts$f[1]  
+  results[i,paste0("ARI_F2")] = forecasts$f[2]   
+  results[i,paste0("ARI_F3")] = forecasts$f[3]   
+  results[i,paste0("ARI_F4")] = forecasts$f[4]   
+  results[i,paste0("ARI_F5")] = forecasts$f[5]   
+  results[i,paste0("ARI_F6")] = forecasts$f[6]   
+  results[i,paste0("ARI_F7")] = forecasts$f[7]   
+  results[i,paste0("ARI_F8")] = forecasts$f[8]   
+  results[i,paste0("ARI_F9")] = forecasts$f[9]   
+  results[i,paste0("ARI_F10")] = forecasts$f[10]   
+  results[i,paste0("ARI_F11")] = forecasts$f[11]   
+  results[i,paste0("ARI_F12")] = forecasts$f[12]
+
   
   #ARIMA Model with d=1
   nulldev()
@@ -1394,7 +2217,6 @@ for(i in 1:z) {
     ASEHolder10[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 10 - 1)] - forecasts$f[1:10])^2)
     ASEHolder11[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 11 - 1)] - forecasts$f[1:11])^2)
     ASEHolder12[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 12 - 1)] - forecasts$f[1:12])^2)
-    
     sink()
     
     assign(paste("ARIMA_Results_",k,sep=""),(temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + j - 1)] - forecasts$f)^2)
@@ -1425,7 +2247,6 @@ for(i in 1:z) {
   results[i,paste0("ARIMA_10_ASE")] = WindowedASE10
   results[i,paste0("ARIMA_11_ASE")] = WindowedASE11
   results[i,paste0("ARIMA_12_ASE")] = WindowedASE12
-  
   results[i,paste0("ARIMA_F1")] = forecasts$f[1]  
   results[i,paste0("ARIMA_F2")] = forecasts$f[2]   
   results[i,paste0("ARIMA_F3")] = forecasts$f[3]   
@@ -1437,7 +2258,96 @@ for(i in 1:z) {
   results[i,paste0("ARIMA_F9")] = forecasts$f[9]   
   results[i,paste0("ARIMA_F10")] = forecasts$f[10]   
   results[i,paste0("ARIMA_F11")] = forecasts$f[11]   
-  results[i,paste0("ARIMA_F12")] = forecasts$f[12] 
+  results[i,paste0("ARIMA_F12")] = forecasts$f[12]
+
+  
+ 
+#ARIMA Model with q=0 and S=12
+  nulldev()
+  temp2 = artrans.wge(temp1$STD_Cases,phi.tr=c(rep(0,11),1))
+  dev.off()
+  
+  trainingSize = 60
+  ASEHolder1 = numeric()
+  ASEHolder2 = numeric()
+  ASEHolder3 = numeric()
+  ASEHolder4 = numeric()
+  ASEHolder5 = numeric()
+  ASEHolder6 = numeric()
+  ASEHolder7 = numeric()
+  ASEHolder8 = numeric()
+  ASEHolder9 = numeric()
+  ASEHolder10 = numeric()
+  ASEHolder11 = numeric()
+  ASEHolder12 = numeric()
+  
+  for( k in 1:(84-(trainingSize + j) + 1))
+  {
+    sink("file")
+    model1 = invisible(aic.wge(temp2[k:(k+(trainingSize-1-12))],q=0, type="aic"))
+    if (model1$p == 0){
+      newphi = 1
+    } else {
+      newphi = model1$p
+    } 
+    model1_est = invisible(est.ar.wge(temp2[k:(k+(trainingSize-1-12))],p=newphi))
+    forecasts = fore.aruma.wge(temp1$STD_Cases[k:(k+(trainingSize-1))],phi = model1_est$phi, theta = 0, s = 12, d = 0,n.ahead = j,plot=FALSE)
+    ASEHolder1[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 1 - 1)] - forecasts$f[1:1])^2)
+    ASEHolder2[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 2 - 1)] - forecasts$f[1:2])^2)
+    ASEHolder3[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 3 - 1)] - forecasts$f[1:3])^2)
+    ASEHolder4[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 4 - 1)] - forecasts$f[1:4])^2)
+    ASEHolder5[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 5 - 1)] - forecasts$f[1:5])^2)
+    ASEHolder6[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 6 - 1)] - forecasts$f[1:6])^2)
+    ASEHolder7[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 7 - 1)] - forecasts$f[1:7])^2)
+    ASEHolder8[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 8 - 1)] - forecasts$f[1:8])^2)
+    ASEHolder9[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 9 - 1)] - forecasts$f[1:9])^2)
+    ASEHolder10[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 10 - 1)] - forecasts$f[1:10])^2)
+    ASEHolder11[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 11 - 1)] - forecasts$f[1:11])^2)
+    ASEHolder12[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 12 - 1)] - forecasts$f[1:12])^2)
+    sink()
+    
+    assign(paste("ARIS_Results_",k,sep=""),(temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + j - 1)] - forecasts$f)^2)
+    assign(paste("ARIS_DF_",k,sep=""),trainingSize-(newphi+1))
+
+  }
+  
+  WindowedASE1 = mean(ASEHolder1)
+  WindowedASE2 = mean(ASEHolder2)
+  WindowedASE3 = mean(ASEHolder3)
+  WindowedASE4 = mean(ASEHolder4)
+  WindowedASE5 = mean(ASEHolder5)
+  WindowedASE6 = mean(ASEHolder6)
+  WindowedASE7 = mean(ASEHolder7)
+  WindowedASE8 = mean(ASEHolder8)
+  WindowedASE9 = mean(ASEHolder9)
+  WindowedASE10 = mean(ASEHolder10)
+  WindowedASE11 = mean(ASEHolder11)
+  WindowedASE12 = mean(ASEHolder12)
+  results[i,paste0("ARI_S12_1_ASE")] = WindowedASE1
+  results[i,paste0("ARI_S12_2_ASE")] = WindowedASE2
+  results[i,paste0("ARI_S12_3_ASE")] = WindowedASE3
+  results[i,paste0("ARI_S12_4_ASE")] = WindowedASE4
+  results[i,paste0("ARI_S12_5_ASE")] = WindowedASE5
+  results[i,paste0("ARI_S12_6_ASE")] = WindowedASE6
+  results[i,paste0("ARI_S12_7_ASE")] = WindowedASE7
+  results[i,paste0("ARI_S12_8_ASE")] = WindowedASE8
+  results[i,paste0("ARI_S12_9_ASE")] = WindowedASE9
+  results[i,paste0("ARI_S12_10_ASE")] = WindowedASE10
+  results[i,paste0("ARI_S12_11_ASE")] = WindowedASE11
+  results[i,paste0("ARI_S12_12_ASE")] = WindowedASE12
+  results[i,paste0("ARI_S12_F1")] = forecasts$f[1]  
+  results[i,paste0("ARI_S12_F2")] = forecasts$f[2]   
+  results[i,paste0("ARI_S12_F3")] = forecasts$f[3]   
+  results[i,paste0("ARI_S12_F4")] = forecasts$f[4]   
+  results[i,paste0("ARI_S12_F5")] = forecasts$f[5]   
+  results[i,paste0("ARI_S12_F6")] = forecasts$f[6]   
+  results[i,paste0("ARI_S12_F7")] = forecasts$f[7]   
+  results[i,paste0("ARI_S12_F8")] = forecasts$f[8]   
+  results[i,paste0("ARI_S12_F9")] = forecasts$f[9]   
+  results[i,paste0("ARI_S12_F10")] = forecasts$f[10]   
+  results[i,paste0("ARI_S12_F11")] = forecasts$f[11]   
+  results[i,paste0("ARI_S12_F12")] = forecasts$f[12]   
+
   
   
   #ARIMA Model with S=12
@@ -1477,7 +2387,6 @@ for(i in 1:z) {
     ASEHolder10[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 10 - 1)] - forecasts$f[1:10])^2)
     ASEHolder11[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 11 - 1)] - forecasts$f[1:11])^2)
     ASEHolder12[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 12 - 1)] - forecasts$f[1:12])^2)
-    
     sink()
     
     assign(paste("ARIMAS_Results_",k,sep=""),(temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + j - 1)] - forecasts$f)^2)
@@ -1508,7 +2417,6 @@ for(i in 1:z) {
   results[i,paste0("ARIMA_S12_10_ASE")] = WindowedASE10
   results[i,paste0("ARIMA_S12_11_ASE")] = WindowedASE11
   results[i,paste0("ARIMA_S12_12_ASE")] = WindowedASE12
-
   results[i,paste0("ARIMA_S12_F1")] = forecasts$f[1]  
   results[i,paste0("ARIMA_S12_F2")] = forecasts$f[2]   
   results[i,paste0("ARIMA_S12_F3")] = forecasts$f[3]   
@@ -1521,7 +2429,163 @@ for(i in 1:z) {
   results[i,paste0("ARIMA_S12_F10")] = forecasts$f[10]   
   results[i,paste0("ARIMA_S12_F11")] = forecasts$f[11]   
   results[i,paste0("ARIMA_S12_F12")] = forecasts$f[12]   
+
   
+  
+  #Random Forest
+  trainingSize = 60
+  ASEHolder1 = numeric()
+  ASEHolder2 = numeric()
+  ASEHolder3 = numeric()
+  ASEHolder4 = numeric()
+  ASEHolder5 = numeric()
+  ASEHolder6 = numeric()
+  ASEHolder7 = numeric()
+  ASEHolder8 = numeric()
+  ASEHolder9 = numeric()
+  ASEHolder10 = numeric()
+  ASEHolder11 = numeric()
+  ASEHolder12 = numeric()
+  
+  for( k in 1:(84-(trainingSize + j) + 1))
+  {
+    sink("file")
+   
+    forecasts <- rf_ts(j, temp1[k:(k+(trainingSize-1)),], FALSE)
+    
+    ASEHolder1[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 1 - 1)] - forecasts$forecast[1:1])^2)
+    ASEHolder2[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 2 - 1)] - forecasts$forecast[1:2])^2)
+    ASEHolder3[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 3 - 1)] - forecasts$forecast[1:3])^2)
+    ASEHolder4[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 4 - 1)] - forecasts$forecast[1:4])^2)
+    ASEHolder5[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 5 - 1)] - forecasts$forecast[1:5])^2)
+    ASEHolder6[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 6 - 1)] - forecasts$forecast[1:6])^2)
+    ASEHolder7[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 7 - 1)] - forecasts$forecast[1:7])^2)
+    ASEHolder8[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 8 - 1)] - forecasts$forecast[1:8])^2)
+    ASEHolder9[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 9 - 1)] - forecasts$forecast[1:9])^2)
+    ASEHolder10[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 10 - 1)] - forecasts$forecast[1:10])^2)
+    ASEHolder11[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 11 - 1)] - forecasts$forecast[1:11])^2)
+    ASEHolder12[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 12 - 1)] - forecasts$forecast[1:12])^2)
+    sink()
+    
+    assign(paste("RF_Results_",k,sep=""),(temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + j - 1)] - forecasts$forecast)^2)
+
+  }
+  
+  WindowedASE1 = mean(ASEHolder1)
+  WindowedASE2 = mean(ASEHolder2)
+  WindowedASE3 = mean(ASEHolder3)
+  WindowedASE4 = mean(ASEHolder4)
+  WindowedASE5 = mean(ASEHolder5)
+  WindowedASE6 = mean(ASEHolder6)
+  WindowedASE7 = mean(ASEHolder7)
+  WindowedASE8 = mean(ASEHolder8)
+  WindowedASE9 = mean(ASEHolder9)
+  WindowedASE10 = mean(ASEHolder10)
+  WindowedASE11 = mean(ASEHolder11)
+  WindowedASE12 = mean(ASEHolder12)
+  results[i,paste0("RF_1_ASE")] = WindowedASE1
+  results[i,paste0("RF_2_ASE")] = WindowedASE2
+  results[i,paste0("RF_3_ASE")] = WindowedASE3
+  results[i,paste0("RF_4_ASE")] = WindowedASE4
+  results[i,paste0("RF_5_ASE")] = WindowedASE5
+  results[i,paste0("RF_6_ASE")] = WindowedASE6
+  results[i,paste0("RF_7_ASE")] = WindowedASE7
+  results[i,paste0("RF_8_ASE")] = WindowedASE8
+  results[i,paste0("RF_9_ASE")] = WindowedASE9
+  results[i,paste0("RF_10_ASE")] = WindowedASE10
+  results[i,paste0("RF_11_ASE")] = WindowedASE11
+  results[i,paste0("RF_12_ASE")] = WindowedASE12
+  results[i,paste0("RF_F1")] = forecasts$forecast[1]  
+  results[i,paste0("RF_F2")] = forecasts$forecast[2]   
+  results[i,paste0("RF_F3")] = forecasts$forecast[3]   
+  results[i,paste0("RF_F4")] = forecasts$forecast[4]   
+  results[i,paste0("RF_F5")] = forecasts$forecast[5]   
+  results[i,paste0("RF_F6")] = forecasts$forecast[6]   
+  results[i,paste0("RF_F7")] = forecasts$forecast[7]   
+  results[i,paste0("RF_F8")] = forecasts$forecast[8]   
+  results[i,paste0("RF_F9")] = forecasts$forecast[9]   
+  results[i,paste0("RF_F10")] = forecasts$forecast[10]   
+  results[i,paste0("RF_F11")] = forecasts$forecast[11]   
+  results[i,paste0("RF_F12")] = forecasts$forecast[12]   
+
+  
+  
+  # MLP
+  trainingSize = 60
+  ASEHolder1 = numeric()
+  ASEHolder2 = numeric()
+  ASEHolder3 = numeric()
+  ASEHolder4 = numeric()
+  ASEHolder5 = numeric()
+  ASEHolder6 = numeric()
+  ASEHolder7 = numeric()
+  ASEHolder8 = numeric()
+  ASEHolder9 = numeric()
+  ASEHolder10 = numeric()
+  ASEHolder11 = numeric()
+  ASEHolder12 = numeric()
+  
+  for( k in 1:(84-(trainingSize + j) + 1))
+  {
+    sink("file")
+
+    forecasts <- nnc(temp1$STD_Cases[k:(k+(trainingSize-1))], j, 10, c(5, 10, 15, 5), FALSE)
+    
+    ASEHolder1[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 1 - 1)] - forecasts$forecast[1:1])^2)
+    ASEHolder2[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 2 - 1)] - forecasts$forecast[1:2])^2)
+    ASEHolder3[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 3 - 1)] - forecasts$forecast[1:3])^2)
+    ASEHolder4[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 4 - 1)] - forecasts$forecast[1:4])^2)
+    ASEHolder5[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 5 - 1)] - forecasts$forecast[1:5])^2)
+    ASEHolder6[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 6 - 1)] - forecasts$forecast[1:6])^2)
+    ASEHolder7[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 7 - 1)] - forecasts$forecast[1:7])^2)
+    ASEHolder8[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 8 - 1)] - forecasts$forecast[1:8])^2)
+    ASEHolder9[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 9 - 1)] - forecasts$forecast[1:9])^2)
+    ASEHolder10[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 10 - 1)] - forecasts$forecast[1:10])^2)
+    ASEHolder11[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 11 - 1)] - forecasts$forecast[1:11])^2)
+    ASEHolder12[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 12 - 1)] - forecasts$forecast[1:12])^2)
+    sink()
+    
+    assign(paste("MLP_Results_",k,sep=""),(temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + j - 1)] - forecasts$forecast)^2)
+
+  }
+  
+  WindowedASE1 = mean(ASEHolder1)
+  WindowedASE2 = mean(ASEHolder2)
+  WindowedASE3 = mean(ASEHolder3)
+  WindowedASE4 = mean(ASEHolder4)
+  WindowedASE5 = mean(ASEHolder5)
+  WindowedASE6 = mean(ASEHolder6)
+  WindowedASE7 = mean(ASEHolder7)
+  WindowedASE8 = mean(ASEHolder8)
+  WindowedASE9 = mean(ASEHolder9)
+  WindowedASE10 = mean(ASEHolder10)
+  WindowedASE11 = mean(ASEHolder11)
+  WindowedASE12 = mean(ASEHolder12)
+  results[i,paste0("MLP_1_ASE")] = WindowedASE1
+  results[i,paste0("MLP_2_ASE")] = WindowedASE2
+  results[i,paste0("MLP_3_ASE")] = WindowedASE3
+  results[i,paste0("MLP_4_ASE")] = WindowedASE4
+  results[i,paste0("MLP_5_ASE")] = WindowedASE5
+  results[i,paste0("MLP_6_ASE")] = WindowedASE6
+  results[i,paste0("MLP_7_ASE")] = WindowedASE7
+  results[i,paste0("MLP_8_ASE")] = WindowedASE8
+  results[i,paste0("MLP_9_ASE")] = WindowedASE9
+  results[i,paste0("MLP_10_ASE")] = WindowedASE10
+  results[i,paste0("MLP_11_ASE")] = WindowedASE11
+  results[i,paste0("MLP_12_ASE")] = WindowedASE12
+  results[i,paste0("MLP_F1")] = forecasts$forecast[1]  
+  results[i,paste0("MLP_F2")] = forecasts$forecast[2]   
+  results[i,paste0("MLP_F3")] = forecasts$forecast[3]   
+  results[i,paste0("MLP_F4")] = forecasts$forecast[4]   
+  results[i,paste0("MLP_F5")] = forecasts$forecast[5]   
+  results[i,paste0("MLP_F6")] = forecasts$forecast[6]   
+  results[i,paste0("MLP_F7")] = forecasts$forecast[7]   
+  results[i,paste0("MLP_F8")] = forecasts$forecast[8]   
+  results[i,paste0("MLP_F9")] = forecasts$forecast[9]   
+  results[i,paste0("MLP_F10")] = forecasts$forecast[10]   
+  results[i,paste0("MLP_F11")] = forecasts$forecast[11]   
+  results[i,paste0("MLP_F12")] = forecasts$forecast[12]   
+
   
   results[i,paste0("ACTUAL_1")] = temp1$STD_Cases[73]
   results[i,paste0("ACTUAL_2")] = temp1$STD_Cases[74]
@@ -1535,39 +2599,70 @@ for(i in 1:z) {
   results[i,paste0("ACTUAL_10")] = temp1$STD_Cases[82]
   results[i,paste0("ACTUAL_11")] = temp1$STD_Cases[83]
   results[i,paste0("ACTUAL_12")] = temp1$STD_Cases[84]
+
   
   #graph ASEs for each Model
   EqualMeans_Results <- rbind(EqualMeans_Results_1,EqualMeans_Results_2,EqualMeans_Results_3,EqualMeans_Results_4,EqualMeans_Results_5,EqualMeans_Results_6,
                               EqualMeans_Results_7,EqualMeans_Results_8,EqualMeans_Results_9,EqualMeans_Results_10,EqualMeans_Results_11,EqualMeans_Results_12,
                               EqualMeans_Results_13)
   
+  AR_Results <- rbind(AR_Results_1,AR_Results_2,AR_Results_3,AR_Results_4,AR_Results_5,AR_Results_6,AR_Results_7,AR_Results_8,AR_Results_9,AR_Results_10,
+                      AR_Results_11,AR_Results_12,AR_Results_13)
+  
   ARMA_Results <- rbind(ARMA_Results_1,ARMA_Results_2,ARMA_Results_3,ARMA_Results_4,ARMA_Results_5,ARMA_Results_6,ARMA_Results_7,ARMA_Results_8,
                        ARMA_Results_9,ARMA_Results_10,ARMA_Results_11,ARMA_Results_12,ARMA_Results_13)
 
+  ARI_Results <- rbind(ARI_Results_1,ARI_Results_2,ARI_Results_3,ARI_Results_4,ARI_Results_5,ARI_Results_6,ARI_Results_7,ARI_Results_8,
+                         ARI_Results_9,ARI_Results_10,ARI_Results_11,ARI_Results_12,ARI_Results_13)
+ 
   ARIMA_Results <- rbind(ARIMA_Results_1,ARIMA_Results_2,ARIMA_Results_3,ARIMA_Results_4,ARIMA_Results_5,ARIMA_Results_6,ARIMA_Results_7,ARIMA_Results_8,
                          ARIMA_Results_9,ARIMA_Results_10,ARIMA_Results_11,ARIMA_Results_12,ARIMA_Results_13)
       
+  ARIS_Results <- rbind(ARIS_Results_1,ARIS_Results_2,ARIS_Results_3,ARIS_Results_4,ARIS_Results_5,ARIS_Results_6,ARIS_Results_7,ARIS_Results_8,
+                          ARIS_Results_9,ARIS_Results_10,ARIS_Results_11,ARIS_Results_12,ARIS_Results_13)
+  
   ARIMAS_Results <- rbind(ARIMAS_Results_1,ARIMAS_Results_2,ARIMAS_Results_3,ARIMAS_Results_4,ARIMAS_Results_5,ARIMAS_Results_6,ARIMAS_Results_7,ARIMAS_Results_8,
                           ARIMAS_Results_9,ARIMAS_Results_10,ARIMAS_Results_11,ARIMAS_Results_12,ARIMAS_Results_13)
+  
+  RF_Results <- rbind(RF_Results_1,RF_Results_2,RF_Results_3,RF_Results_4,RF_Results_5,RF_Results_6,RF_Results_7,RF_Results_8,
+                        RF_Results_9,RF_Results_10,RF_Results_11,RF_Results_12,RF_Results_13)
+    
+  MLP_Results <- rbind(MLP_Results_1,MLP_Results_2,MLP_Results_3,MLP_Results_4,MLP_Results_5,MLP_Results_6,MLP_Results_7,MLP_Results_8,
+                      MLP_Results_9,MLP_Results_10,MLP_Results_11,MLP_Results_12,MLP_Results_13)
       
   EqualMeans_Means <- colMeans(EqualMeans_Results)
+  AR_Means <- colMeans(AR_Results)
   ARMA_Means <- colMeans(ARMA_Results)
+  ARI_Means <- colMeans(ARI_Results)
   ARIMA_Means <- colMeans(ARIMA_Results)
+  ARIS_Means <- colMeans(ARIS_Results)
   ARIMAS_Means <- colMeans(ARIMAS_Results)
-  Combined_Means <- data.frame(EqualMeans_Means,ARMA_Means, ARIMA_Means, ARIMAS_Means)
+  RF_Means <- colMeans(RF_Results)
+  MLP_Means <- colMeans(MLP_Results)
+  Combined_Means <- data.frame(EqualMeans_Means,AR_Means, ARMA_Means, ARI_Means, ARIMA_Means, ARIS_Means, ARIMAS_Means,RF_Means,MLP_Means)
   Combined_Means$horizon <- as.numeric(row.names(Combined_Means))
   
-
+# more colors #73EBAE
   g <- ggplot(data=Combined_Means, aes(horizon)) +
     geom_line(aes(y=EqualMeans_Means, color="Equal Means"),size=1.5) +
+    geom_line(aes(y=AR_Means, color="AR"),size=1.5) +
     geom_line(aes(y=ARMA_Means, color="ARMA"),size=1.5) +
-    geom_line(aes(y=ARIMA_Means, color="ARIMA"),size=1.5) +
-    geom_line(aes(y=ARIMAS_Means, color="ARIMAS"),size=1.5) +
+    geom_line(aes(y=ARI_Means, color="AR with d=1"),size=1.5) +
+    geom_line(aes(y=ARIMA_Means, color="ARIMA with d=1"),size=1.5) +
+    geom_line(aes(y=ARIS_Means, color="AR with s=12"),size=1.5) +
+    geom_line(aes(y=ARIMAS_Means, color="ARIMA with d=0, s=12"),size=1.5) +
+    geom_line(aes(y=RF_Means, color="Random Forest"),size=1.5) +
+    geom_line(aes(y=MLP_Means, color="MLP"),size=1.5) +
     scale_color_manual(values = c(
-      'Equal Means' = '#58508d',
-      'ARMA' = '#bc5090',
-      'ARIMA' = '#ff6361',
-      'ARIMAS' = '#ffa600'
+      'Equal Means' = '#004159',
+      'AR' = '#65A8C4',
+      'ARMA' = '#8C65D3',
+      'AR with d=1' = '#9A93EC',
+      'ARIMA with d=1' = '#0052A5',
+      'AR with s=12' = '#413BF7',
+      'ARIMA with d=0, s=12' = '#00ADCE',
+      'Random Forest' = '#59DBF1',
+      'MLP' = '#00C590'
     )) +
     labs(color='Models') +
     scale_x_continuous(breaks=seq(0,13,1)) +
@@ -1577,10 +2672,107 @@ for(i in 1:z) {
     theme(panel.background = element_blank(), axis.line = element_line(colour = "black"), legend.title = element_blank())
   
   print(g)
+  
+# f-statistic calculations
+    EqualMeans_DF <- rbind(EqualMeans_DF_1,EqualMeans_DF_2,EqualMeans_DF_3,EqualMeans_DF_4,EqualMeans_DF_5,EqualMeans_DF_6,EqualMeans_DF_7,
+                           EqualMeans_DF_8,EqualMeans_DF_9,EqualMeans_DF_10,EqualMeans_DF_11,EqualMeans_DF_12,EqualMeans_DF_13)
+    
+    AR_DF <- rbind(AR_DF_1,AR_DF_2,AR_DF_3,AR_DF_4,AR_DF_5,AR_DF_6,AR_DF_7,AR_DF_8,AR_DF_9,AR_DF_10,AR_DF_11,AR_DF_12,AR_DF_13)
+    
+    ARI_DF <- rbind(ARI_DF_1,ARI_DF_2,ARI_DF_3,ARI_DF_4,ARI_DF_5,ARI_DF_6,ARI_DF_7,ARI_DF_8,ARI_DF_9,ARI_DF_10,ARI_DF_11,ARI_DF_12,ARI_DF_13)
+    
+    ARIS_DF <- rbind(ARIS_DF_1,ARIS_DF_2,ARIS_DF_3,ARIS_DF_4,ARIS_DF_5,ARIS_DF_6,ARIS_DF_7,ARIS_DF_8,ARIS_DF_9,ARIS_DF_10,ARIS_DF_11,ARIS_DF_12,ARIS_DF_13)
+    
+    
+    EqualMeans_Results <- rbind(sum(EqualMeans_Results_1),sum(EqualMeans_Results_2),sum(EqualMeans_Results_3),sum(EqualMeans_Results_4),sum(EqualMeans_Results_5),
+                                sum(EqualMeans_Results_6),sum(EqualMeans_Results_7),sum(EqualMeans_Results_8),sum(EqualMeans_Results_9),sum(EqualMeans_Results_10),
+                                sum(EqualMeans_Results_11),sum(EqualMeans_Results_12),sum(EqualMeans_Results_13))
+    
+    AR_Results <- rbind(sum(AR_Results_1),sum(AR_Results_2),sum(AR_Results_3),sum(AR_Results_4),sum(AR_Results_5),sum(AR_Results_6),sum(AR_Results_7),
+                        sum(AR_Results_8),sum(AR_Results_9),sum(AR_Results_10),sum(AR_Results_11),sum(AR_Results_12),sum(AR_Results_13))
+    
+    ARI_Results <- rbind(sum(ARI_Results_1),sum(ARI_Results_2),sum(ARI_Results_3),sum(ARI_Results_4),sum(ARI_Results_5),sum(ARI_Results_6),sum(ARI_Results_7),
+                         sum(ARI_Results_8),sum(ARI_Results_9),sum(ARI_Results_10),sum(ARI_Results_11),sum(ARI_Results_12),sum(ARI_Results_13))
+    
+    ARIS_Results <- rbind(sum(ARIS_Results_1),sum(ARIS_Results_2),sum(ARIS_Results_3),sum(ARIS_Results_4),sum(ARIS_Results_5),sum(ARIS_Results_6),sum(ARIS_Results_7),
+                         sum(ARIS_Results_8),sum(ARIS_Results_9),sum(ARIS_Results_10),sum(ARIS_Results_11),sum(ARIS_Results_12),sum(ARIS_Results_13))
+    
+    df_model = EqualMeans_DF - AR_DF
+    ss_model = EqualMeans_Results - AR_Results
+    ms_model = ss_model/df_model
+    ms_ar = AR_Results/AR_DF
+    F = ms_model/ms_ar
+    AR_p_value = pf(F,df_model,AR_DF,lower.tail=FALSE)
+    AR_p_tally = sum(AR_p_value[,1]<.05, na.rm=TRUE)
+    results[i,"AR_F_Tally"] = AR_p_tally
+    
+    if (AR_p_tally >= 9){
+      results[i,"AR_F_Conclusion"] = "Different"
+    } else if (AR_p_tally <= 4){
+      results[i,"AR_F_Conclusion"] = "Same"
+    } else {
+       results[i,"AR_F_Conclusion"] = "Inconclusive"
+    }
+
+    df_model = EqualMeans_DF - ARI_DF
+    ss_model = EqualMeans_Results - ARI_Results
+    ms_model = ss_model/df_model
+    ms_ari = ARI_Results/ARI_DF
+    F = ms_model/ms_ari
+    ARI_p_value = pf(F,df_model,ARI_DF,lower.tail=FALSE)
+    ARI_p_tally = sum(ARI_p_value[,1]<.05, na.rm=TRUE)
+    results[i,"ARI_F_Tally"] = ARI_p_tally
+    
+    if (ARI_p_tally >= 9){
+      results[i,"ARI_F_Conclusion"] = "Different"
+    } else if (ARI_p_tally <= 4){
+      results[i,"ARI_F_Conclusion"] = "Same"
+    } else {
+      results[i,"ARI_F_Conclusion"] = "Inconclusive"
+    }
+ 
+    df_model = EqualMeans_DF - ARIS_DF
+    ss_model = EqualMeans_Results - ARIS_Results
+    ms_model = ss_model/df_model
+    ms_aris = ARIS_Results/ARIS_DF
+    F = ms_model/ms_aris
+    ARIS_p_value = pf(F,df_model,ARIS_DF,lower.tail=FALSE)
+    ARIS_p_tally = sum(ARIS_p_value[,1]<.05, na.rm=TRUE)
+    results[i,"ARIS_F_Tally"] = ARIS_p_tally
+    
+    if (ARIS_p_tally >= 9){
+      results[i,"ARIS_F_Conclusion"] = "Different"
+    } else if (ARIS_p_tally <= 4){
+      results[i,"ARIS_F_Conclusion"] = "Same"
+    } else {
+       results[i,"ARIS_F_Conclusion"] = "Inconclusive"
+    }
+
 }
 
-vec=c("EqualMeans_12_ASE","ARMA_12_ASE","ARIMA_12_ASE","ARIMA_S12_12_ASE")
-results$winning_12 <- colnames(results[c("EqualMeans_12_ASE","ARMA_12_ASE","ARIMA_12_ASE","ARIMA_S12_12_ASE")])[apply(results[c("EqualMeans_12_ASE","ARMA_12_ASE","ARIMA_12_ASE","ARIMA_S12_12_ASE")],1,which.min)]
+results$winning_1 <- colnames(results[c("EqualMeans_1_ASE","AR_1_ASE","ARMA_1_ASE","ARI_1_ASE","ARIMA_1_ASE","ARI_S12_1_ASE","ARIMA_S12_1_ASE","RF_1_ASE","MLP_1_ASE")])[apply(results[c("EqualMeans_1_ASE","AR_1_ASE","ARMA_1_ASE","ARI_1_ASE","ARIMA_1_ASE","ARI_S12_1_ASE","ARIMA_S12_1_ASE","RF_1_ASE","MLP_1_ASE")],1,which.min)]
+
+results$winning_2 <- colnames(results[c("EqualMeans_2_ASE","AR_2_ASE","ARMA_2_ASE","ARI_2_ASE","ARIMA_2_ASE","ARI_S12_2_ASE","ARIMA_S12_2_ASE","RF_2_ASE","MLP_2_ASE")])[apply(results[c("EqualMeans_2_ASE","AR_2_ASE","ARMA_2_ASE","ARI_2_ASE","ARIMA_2_ASE","ARI_S12_2_ASE","ARIMA_S12_2_ASE","RF_2_ASE","MLP_2_ASE")],1,which.min)]
+
+results$winning_3 <- colnames(results[c("EqualMeans_3_ASE","AR_3_ASE","ARMA_3_ASE","ARI_3_ASE","ARIMA_3_ASE","ARI_S12_3_ASE","ARIMA_S12_3_ASE","RF_3_ASE","MLP_3_ASE")])[apply(results[c("EqualMeans_3_ASE","AR_3_ASE","ARMA_3_ASE","ARI_3_ASE","ARIMA_3_ASE","ARI_S12_3_ASE","ARIMA_S12_3_ASE","RF_3_ASE","MLP_3_ASE")],1,which.min)]
+
+results$winning_4 <- colnames(results[c("EqualMeans_4_ASE","AR_4_ASE","ARMA_4_ASE","ARI_4_ASE","ARIMA_4_ASE","ARI_S12_4_ASE","ARIMA_S12_4_ASE","RF_4_ASE","MLP_4_ASE")])[apply(results[c("EqualMeans_4_ASE","AR_4_ASE","ARMA_4_ASE","ARI_4_ASE","ARIMA_4_ASE","ARI_S12_4_ASE","ARIMA_S12_4_ASE","RF_4_ASE","MLP_4_ASE")],1,which.min)]
+
+results$winning_5 <- colnames(results[c("EqualMeans_5_ASE","AR_5_ASE","ARMA_5_ASE","ARI_5_ASE","ARIMA_5_ASE","ARI_S12_5_ASE","ARIMA_S12_5_ASE","RF_5_ASE","MLP_5_ASE")])[apply(results[c("EqualMeans_5_ASE","AR_5_ASE","ARMA_5_ASE","ARI_5_ASE","ARIMA_5_ASE","ARI_S12_5_ASE","ARIMA_S12_5_ASE","RF_5_ASE","MLP_5_ASE")],1,which.min)]
+
+results$winning_6 <- colnames(results[c("EqualMeans_6_ASE","AR_6_ASE","ARMA_6_ASE","ARI_6_ASE","ARIMA_6_ASE","ARI_S12_6_ASE","ARIMA_S12_6_ASE","RF_6_ASE","MLP_6_ASE")])[apply(results[c("EqualMeans_6_ASE","AR_6_ASE","ARMA_6_ASE","ARI_6_ASE","ARIMA_6_ASE","ARI_S12_6_ASE","ARIMA_S12_6_ASE","RF_6_ASE","MLP_6_ASE")],1,which.min)]
+
+results$winning_7 <- colnames(results[c("EqualMeans_7_ASE","AR_7_ASE","ARMA_7_ASE","ARI_7_ASE","ARIMA_7_ASE","ARI_S12_7_ASE","ARIMA_S12_7_ASE","RF_7_ASE","MLP_7_ASE")])[apply(results[c("EqualMeans_7_ASE","AR_7_ASE","ARMA_7_ASE","ARI_7_ASE","ARIMA_7_ASE","ARI_S12_7_ASE","ARIMA_S12_7_ASE","RF_7_ASE","MLP_7_ASE")],1,which.min)]
+
+results$winning_8 <- colnames(results[c("EqualMeans_8_ASE","AR_8_ASE","ARMA_8_ASE","ARI_8_ASE","ARIMA_8_ASE","ARI_S12_8_ASE","ARIMA_S12_8_ASE","RF_8_ASE","MLP_8_ASE")])[apply(results[c("EqualMeans_8_ASE","AR_8_ASE","ARMA_8_ASE","ARI_8_ASE","ARIMA_8_ASE","ARI_S12_8_ASE","ARIMA_S12_8_ASE","RF_8_ASE","MLP_8_ASE")],1,which.min)]
+
+results$winning_9 <- colnames(results[c("EqualMeans_9_ASE","AR_9_ASE","ARMA_9_ASE","ARI_9_ASE","ARIMA_9_ASE","ARI_S12_9_ASE","ARIMA_S12_9_ASE","RF_9_ASE","MLP_9_ASE")])[apply(results[c("EqualMeans_9_ASE","AR_9_ASE","ARMA_9_ASE","ARI_9_ASE","ARIMA_9_ASE","ARI_S12_9_ASE","ARIMA_S12_9_ASE","RF_9_ASE","MLP_9_ASE")],1,which.min)]
+
+results$winning_10 <- colnames(results[c("EqualMeans_10_ASE","AR_10_ASE","ARMA_10_ASE","ARI_10_ASE","ARIMA_10_ASE","ARI_S12_10_ASE","ARIMA_S12_10_ASE","RF_10_ASE","MLP_10_ASE")])[apply(results[c("EqualMeans_10_ASE","AR_10_ASE","ARMA_10_ASE","ARI_10_ASE","ARIMA_10_ASE","ARI_S12_10_ASE","ARIMA_S12_10_ASE","RF_10_ASE","MLP_10_ASE")],1,which.min)]
+
+results$winning_11 <- colnames(results[c("EqualMeans_11_ASE","AR_11_ASE","ARMA_11_ASE","ARI_11_ASE","ARIMA_11_ASE","ARI_S12_11_ASE","ARIMA_S12_11_ASE","RF_11_ASE","MLP_11_ASE")])[apply(results[c("EqualMeans_11_ASE","AR_11_ASE","ARMA_11_ASE","ARI_11_ASE","ARIMA_11_ASE","ARI_S12_11_ASE","ARIMA_S12_11_ASE","RF_11_ASE","MLP_11_ASE")],1,which.min)]
+
+results$winning_12 <- colnames(results[c("EqualMeans_12_ASE","AR_12_ASE","ARMA_12_ASE","ARI_12_ASE","ARIMA_12_ASE","ARI_S12_12_ASE","ARIMA_S12_12_ASE","RF_12_ASE","MLP_12_ASE")])[apply(results[c("EqualMeans_12_ASE","AR_12_ASE","ARMA_12_ASE","ARI_12_ASE","ARIMA_12_ASE","ARI_S12_12_ASE","ARIMA_S12_12_ASE","RF_12_ASE","MLP_12_ASE")],1,which.min)]
 
 formattable(results, align = c("l", rep("r", NCOL(table_a) - 1)))
 
@@ -1599,6 +2791,19 @@ for (i in 1:z){
     aggregated_forecast$F10[i] <- results$EqualMeans_F10[i]
     aggregated_forecast$F11[i] <- results$EqualMeans_F11[i]
     aggregated_forecast$F12[i] <- results$EqualMeans_F12[i]
+  } else if (results$winning_12[i] == "AR_12_ASE"){
+    aggregated_forecast$F1[i] <- results$AR_F1[i]
+    aggregated_forecast$F2[i] <- results$AR_F2[i]
+    aggregated_forecast$F3[i] <- results$AR_F3[i]
+    aggregated_forecast$F4[i] <- results$AR_F4[i]
+    aggregated_forecast$F5[i] <- results$AR_F5[i]
+    aggregated_forecast$F6[i] <- results$AR_F6[i]
+    aggregated_forecast$F7[i] <- results$AR_F7[i]
+    aggregated_forecast$F8[i] <- results$AR_F8[i]
+    aggregated_forecast$F9[i] <- results$AR_F9[i]
+    aggregated_forecast$F10[i] <- results$AR_F10[i]
+    aggregated_forecast$F11[i] <- results$AR_F11[i]
+    aggregated_forecast$F12[i] <- results$AR_F12[i]
   } else if (results$winning_12[i] == "ARMA_12_ASE"){
     aggregated_forecast$F1[i] <- results$ARMA_F1[i]
     aggregated_forecast$F2[i] <- results$ARMA_F2[i]
@@ -1612,6 +2817,19 @@ for (i in 1:z){
     aggregated_forecast$F10[i] <- results$ARMA_F10[i]
     aggregated_forecast$F11[i] <- results$ARMA_F11[i]
     aggregated_forecast$F12[i] <- results$ARMA_F12[i]
+  } else if (results$winning_12[i] == "ARI_12_ASE"){
+    aggregated_forecast$F1[i] <- results$ARI_F1[i]
+    aggregated_forecast$F2[i] <- results$ARI_F2[i]
+    aggregated_forecast$F3[i] <- results$ARI_F3[i]
+    aggregated_forecast$F4[i] <- results$ARI_F4[i]
+    aggregated_forecast$F5[i] <- results$ARI_F5[i]
+    aggregated_forecast$F6[i] <- results$ARI_F6[i]
+    aggregated_forecast$F7[i] <- results$ARI_F7[i]
+    aggregated_forecast$F8[i] <- results$ARI_F8[i]
+    aggregated_forecast$F9[i] <- results$ARI_F9[i]
+    aggregated_forecast$F10[i] <- results$ARI_F10[i]
+    aggregated_forecast$F11[i] <- results$ARI_F11[i]
+    aggregated_forecast$F12[i] <- results$ARI_F12[i]
   } else if (results$winning_12[i] == "ARIMA_12_ASE"){
     aggregated_forecast$F1[i] <- results$ARIMA_F1[i]
     aggregated_forecast$F2[i] <- results$ARIMA_F2[i]
@@ -1625,6 +2843,19 @@ for (i in 1:z){
     aggregated_forecast$F10[i] <- results$ARIMA_F10[i]
     aggregated_forecast$F11[i] <- results$ARIMA_F11[i]
     aggregated_forecast$F12[i] <- results$ARIMA_F12[i]
+  } else if (results$winning_12[i] == "ARI_S12_12_ASE"){
+    aggregated_forecast$F1[i] <- results$ARI_S12_F1[i]
+    aggregated_forecast$F2[i] <- results$ARI_S12_F2[i]
+    aggregated_forecast$F3[i] <- results$ARI_S12_F3[i]
+    aggregated_forecast$F4[i] <- results$ARI_S12_F4[i]
+    aggregated_forecast$F5[i] <- results$ARI_S12_F5[i]
+    aggregated_forecast$F6[i] <- results$ARI_S12_F6[i]
+    aggregated_forecast$F7[i] <- results$ARI_S12_F7[i]
+    aggregated_forecast$F8[i] <- results$ARI_S12_F8[i]
+    aggregated_forecast$F9[i] <- results$ARI_S12_F9[i]
+    aggregated_forecast$F10[i] <- results$ARI_S12_F10[i]
+    aggregated_forecast$F11[i] <- results$ARI_S12_F11[i]
+    aggregated_forecast$F12[i] <- results$ARI_S12_F12[i]
   } else if (results$winning_12[i] == "ARIMA_S12_12_ASE"){
     aggregated_forecast$F1[i] <- results$ARIMA_S12_F1[i]
     aggregated_forecast$F2[i] <- results$ARIMA_S12_F2[i]
@@ -1638,6 +2869,32 @@ for (i in 1:z){
     aggregated_forecast$F10[i] <- results$ARIMA_S12_F10[i]
     aggregated_forecast$F11[i] <- results$ARIMA_S12_F11[i]
     aggregated_forecast$F12[i] <- results$ARIMA_S12_F12[i]
+  } else if (results$winning_12[i] == "RF_12_ASE"){
+    aggregated_forecast$F1[i] <- results$RF_F1[i]
+    aggregated_forecast$F2[i] <- results$RF_F2[i]
+    aggregated_forecast$F3[i] <- results$RF_F3[i]
+    aggregated_forecast$F4[i] <- results$RF_F4[i]
+    aggregated_forecast$F5[i] <- results$RF_F5[i]
+    aggregated_forecast$F6[i] <- results$RF_F6[i]
+    aggregated_forecast$F7[i] <- results$RF_F7[i]
+    aggregated_forecast$F8[i] <- results$RF_F8[i]
+    aggregated_forecast$F9[i] <- results$RF_F9[i]
+    aggregated_forecast$F10[i] <- results$RF_F10[i]
+    aggregated_forecast$F11[i] <- results$RF_F11[i]
+    aggregated_forecast$F12[i] <- results$RF_F12[i]
+  } else if (results$winning_12[i] == "MLP_12_ASE"){
+    aggregated_forecast$F1[i] <- results$MLP_F1[i]
+    aggregated_forecast$F2[i] <- results$MLP_F2[i]
+    aggregated_forecast$F3[i] <- results$MLP_F3[i]
+    aggregated_forecast$F4[i] <- results$MLP_F4[i]
+    aggregated_forecast$F5[i] <- results$MLP_F5[i]
+    aggregated_forecast$F6[i] <- results$MLP_F6[i]
+    aggregated_forecast$F7[i] <- results$MLP_F7[i]
+    aggregated_forecast$F8[i] <- results$MLP_F8[i]
+    aggregated_forecast$F9[i] <- results$MLP_F9[i]
+    aggregated_forecast$F10[i] <- results$MLP_F10[i]
+    aggregated_forecast$F11[i] <- results$MLP_F11[i]
+    aggregated_forecast$F12[i] <- results$MLP_F12[i]
   }
 }
 
@@ -1819,17 +3076,20 @@ forecasts_trans <- transpose(forecasts)
 ```{r combinations2}
 # Filter dataset to only 1 product
 df_taaka = df[df$Product == "TAAKA VODKA 80  1L",]
-df_taaka_sum = aggregate(df_taaka$STD_Cases,by=list(Category=df_taaka$date),FUN=sum)
-df_taaka_summarized <- df_taaka_sum %>% rename(date=Category,STD_Cases=x)
+df_taaka_sum = aggregate(df_taaka[4:5],by=list(Category=df_taaka$date),FUN=sum)
+df_taaka_summarized <- df_taaka_sum %>% rename(date=Category)
+
 ```
 
 ```{r loop3}
-resultsa <- data.frame(ljung_10=double(),
+results <- data.frame(Product_Type=integer(),
+                      Product=character(),
+                      Customer=integer(),
+                      ljung_10=double(),
                       ljung_24=double(),
                       ljung_results=character(),
                       top_5_bic=character(),
                       ADF=double(),
-                      PP=double(),
                       KPSS=double(),
                       stationarity_results=character(),
                       EqualMeans_1_ASE=double(),
@@ -1856,6 +3116,30 @@ resultsa <- data.frame(ljung_10=double(),
                       EqualMeans_F10=double(),
                       EqualMeans_F11=double(),
                       EqualMeans_F12=double(),
+                      AR_1_ASE=double(),
+                      AR_2_ASE=double(),
+                      AR_3_ASE=double(),
+                      AR_4_ASE=double(),
+                      AR_5_ASE=double(),
+                      AR_6_ASE=double(),
+                      AR_7_ASE=double(),
+                      AR_8_ASE=double(),
+                      AR_9_ASE=double(),
+                      AR_10_ASE=double(),
+                      AR_11_ASE=double(),
+                      AR_12_ASE=double(),
+                      AR_F1=double(),
+                      AR_F2=double(),
+                      AR_F3=double(),
+                      AR_F4=double(),
+                      AR_F5=double(),
+                      AR_F6=double(),
+                      AR_F7=double(),
+                      AR_F8=double(),
+                      AR_F9=double(),
+                      AR_F10=double(),
+                      AR_F11=double(),
+                      AR_F12=double(),
                       ARMA_1_ASE=double(),
                       ARMA_2_ASE=double(),
                       ARMA_3_ASE=double(),
@@ -1880,6 +3164,30 @@ resultsa <- data.frame(ljung_10=double(),
                       ARMA_F10=double(),
                       ARMA_F11=double(),
                       ARMA_F12=double(),
+                      ARI_1_ASE=double(),
+                      ARI_2_ASE=double(),
+                      ARI_3_ASE=double(),
+                      ARI_4_ASE=double(),
+                      ARI_5_ASE=double(),
+                      ARI_6_ASE=double(),
+                      ARI_7_ASE=double(),
+                      ARI_8_ASE=double(),
+                      ARI_9_ASE=double(),
+                      ARI_10_ASE=double(),
+                      ARI_11_ASE=double(),
+                      ARI_12_ASE=double(),
+                      ARI_F1=double(),
+                      ARI_F2=double(),
+                      ARI_F3=double(),
+                      ARI_F4=double(),
+                      ARI_F5=double(),
+                      ARI_F6=double(),
+                      ARI_F7=double(),
+                      ARI_F8=double(),
+                      ARI_F9=double(),
+                      ARI_F10=double(),
+                      ARI_F11=double(),
+                      ARI_F12=double(),
                       ARIMA_1_ASE=double(),
                       ARIMA_2_ASE=double(),
                       ARIMA_3_ASE=double(),
@@ -1904,6 +3212,30 @@ resultsa <- data.frame(ljung_10=double(),
                       ARIMA_F10=double(),
                       ARIMA_F11=double(),
                       ARIMA_F12=double(),
+                      ARI_S12_1_ASE=double(),
+                      ARI_S12_2_ASE=double(),
+                      ARI_S12_3_ASE=double(),
+                      ARI_S12_4_ASE=double(),
+                      ARI_S12_5_ASE=double(),
+                      ARI_S12_6_ASE=double(),
+                      ARI_S12_7_ASE=double(),
+                      ARI_S12_8_ASE=double(),
+                      ARI_S12_9_ASE=double(),
+                      ARI_S12_10_ASE=double(),
+                      ARI_S12_11_ASE=double(),
+                      ARI_S12_12_ASE=double(),
+                      ARI_S12_F1=double(),
+                      ARI_S12_F2=double(),
+                      ARI_S12_F3=double(),
+                      ARI_S12_F4=double(),
+                      ARI_S12_F5=double(),
+                      ARI_S12_F6=double(),
+                      ARI_S12_F7=double(),
+                      ARI_S12_F8=double(),
+                      ARI_S12_F9=double(),
+                      ARI_S12_F10=double(),
+                      ARI_S12_F11=double(),
+                      ARI_S12_F12=double(),
                       ARIMA_S12_1_ASE=double(),
                       ARIMA_S12_2_ASE=double(),
                       ARIMA_S12_3_ASE=double(),
@@ -1928,6 +3260,54 @@ resultsa <- data.frame(ljung_10=double(),
                       ARIMA_S12_F10=double(),
                       ARIMA_S12_F11=double(),
                       ARIMA_S12_F12=double(),
+                      RF_1_ASE=double(),
+                      RF_2_ASE=double(),
+                      RF_3_ASE=double(),
+                      RF_4_ASE=double(),
+                      RF_5_ASE=double(),
+                      RF_6_ASE=double(),
+                      RF_7_ASE=double(),
+                      RF_8_ASE=double(),
+                      RF_9_ASE=double(),
+                      RF_10_ASE=double(),
+                      RF_11_ASE=double(),
+                      RF_12_ASE=double(),
+                      RF_F1=double(),
+                      RF_F2=double(),
+                      RF_F3=double(),
+                      RF_F4=double(),
+                      RF_F5=double(),
+                      RF_F6=double(),
+                      RF_F7=double(),
+                      RF_F8=double(),
+                      RF_F9=double(),
+                      RF_F10=double(),
+                      RF_F11=double(),
+                      RF_F12=double(),
+                      MLP_1_ASE=double(),
+                      MLP_2_ASE=double(),
+                      MLP_3_ASE=double(),
+                      MLP_4_ASE=double(),
+                      MLP_5_ASE=double(),
+                      MLP_6_ASE=double(),
+                      MLP_7_ASE=double(),
+                      MLP_8_ASE=double(),
+                      MLP_9_ASE=double(),
+                      MLP_10_ASE=double(),
+                      MLP_11_ASE=double(),
+                      MLP_12_ASE=double(),
+                      MLP_F1=double(),
+                      MLP_F2=double(),
+                      MLP_F3=double(),
+                      MLP_F4=double(),
+                      MLP_F5=double(),
+                      MLP_F6=double(),
+                      MLP_F7=double(),
+                      MLP_F8=double(),
+                      MLP_F9=double(),
+                      MLP_F10=double(),
+                      MLP_F11=double(),
+                      MLP_F12=double(),
                       ACTUAL_1=double(),
                       ACTUAL_2=double(),
                       ACTUAL_3=double(),
@@ -1940,6 +3320,12 @@ resultsa <- data.frame(ljung_10=double(),
                       ACTUAL_10=double(),
                       ACTUAL_11=double(),
                       ACTUAL_12=double(),
+                      AR_F_Tally=double(),
+                      AR_F_Conclusion=double(),
+                      ARI_F_Tally=double(),
+                      ARI_F_Conclusion=double(),
+                      ARIS_F_Tally=double(),
+                      ARIS_F_Conclusion=double(),
                       stringsAsFactors = FALSE)
 
 # loop through sample combinations
@@ -1963,26 +3349,26 @@ resultsa <- data.frame(ljung_10=double(),
   ljung_10 = ljung.wge(temp1$STD_Cases,K=10)
   sink()
   cat("The Ljung-Box test with K=10 has a p-value of",ljung_10$pval,".")
-  resultsa[i,"ljung_10"] = ljung_10$pval
+  results[i,"ljung_10"] = ljung_10$pval
   
   sink("file")
   ljung_24 = ljung.wge(temp1$STD_Cases,K=24)
   sink()
   cat("The Ljung-Box test with K=24 has a p-value of",ljung_24$pval,".")
-  resultsa[i,"ljung_24"] = ljung_24$pval
+  results[i,"ljung_24"] = ljung_24$pval
   
   if (ljung_10$pval < .05 & ljung_24$pval < .05){
     print("Ljung-Box test results: At a significance level of 0.05, we reject the null hypothesis that this dataset is white noise.")
-    resultsa[i,"ljung_results"] = "not white noise"
+    results[i,"ljung_results"] = "not white noise"
   } else if (ljung_10$pval > .05 & ljung_24$pval < .05){
     print("Ljung-Box test results: At a significance level of 0.05, the test is inconclusive.")
-    resultsa[i,"ljung_results"] = "inconclusive"
+    results[i,"ljung_results"] = "inconclusive"
   } else if (ljung_10$pval < .05 & ljung_24$pval > .05){
     print("Ljung-Box test results: At a significance level of 0.05, the test is inconclusive.")
-    resultsa[i,"ljung_results"] = "inconclusive"
+    results[i,"ljung_results"] = "inconclusive"
   } else {
     print("Ljung-Box test results: At a significance level of 0.05, we fail to reject the null hypothesis that this dataset is white noise.")
-    resultsa[i,"ljung_results"] = "white noise"
+    results[i,"ljung_results"] = "white noise"
   }
   
   sink("file")
@@ -1992,7 +3378,7 @@ resultsa <- data.frame(ljung_10=double(),
   for (row in 1:nrow(aic)) {
     if(aic[row,1] == 0 & aic[row,2] == 0){
       print("One of the top 5 models using BIC was an ARMA(0,0), indicating this series may be white noise.")
-      resultsa[i,"top_5_bic"] = "white noise"
+      results[i,"top_5_bic"] = "white noise"
     }
   }
   
@@ -2000,25 +3386,21 @@ resultsa <- data.frame(ljung_10=double(),
   
   # Augmented Dickey-Fuller
   adf=tseries::adf.test(temp1$STD_Cases)
-  resultsa[i,"ADF"] = adf$p.value
-  
-  # Phillips-Perron
-  pp=tseries::pp.test(temp1$STD_Cases)
-  resultsa[i,"PP"] = pp$p.value
+  results[i,"ADF"] = adf$p.value
   
   # Kwiatkowski-Phillips-Schmidt-Shin
   kpss=tseries::kpss.test(temp1$STD_Cases)
-  resultsa[i,"KPSS"] = kpss$p.value
+  results[i,"KPSS"] = kpss$p.value
   
   if (adf$p.value < .05 &  kpss$p.value > .05){
     print("Both stationarity tests indicate this time series is stationary.")
-    resultsa[i,"stationarity_results"] = "stationary"
+    results[i,"stationarity_results"] = "stationary"
   } else if (adf$p.value >= .05 & kpss$p.value <= .05){
     print("Both stationarity tests indicate this time series is NOT stationary.")
-    resultsa[i,"stationarity_results"] = "not stationary"
+    results[i,"stationarity_results"] = "not stationary"
   } else {
     print("Both tests for stationarity were inconclusive.")
-    resultsa[i,"stationarity_results"] = "inconclusive"
+    results[i,"stationarity_results"] = "inconclusive"
   }
   
   j=12
@@ -2055,10 +3437,10 @@ resultsa <- data.frame(ljung_10=double(),
     ASEHolder10[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 10 - 1)] - model0_mean)^2)
     ASEHolder11[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 11 - 1)] - model0_mean)^2)
     ASEHolder12[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 12 - 1)] - model0_mean)^2)
-    
     sink()
     
     assign(paste("EqualMeans_Results_",k,sep=""),(temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + j - 1)] - model0_mean)^2)
+    assign(paste("EqualMeans_DF_",k,sep=""),trainingSize-1)
   }
   
   WindowedASE1 = mean(ASEHolder1)
@@ -2073,33 +3455,117 @@ resultsa <- data.frame(ljung_10=double(),
   WindowedASE10 = mean(ASEHolder10)
   WindowedASE11 = mean(ASEHolder11)
   WindowedASE12 = mean(ASEHolder12)
-  resultsa[i,paste0("EqualMeans_1_ASE")] = WindowedASE1
-  resultsa[i,paste0("EqualMeans_2_ASE")] = WindowedASE2
-  resultsa[i,paste0("EqualMeans_3_ASE")] = WindowedASE3
-  resultsa[i,paste0("EqualMeans_4_ASE")] = WindowedASE4
-  resultsa[i,paste0("EqualMeans_5_ASE")] = WindowedASE5
-  resultsa[i,paste0("EqualMeans_6_ASE")] = WindowedASE6
-  resultsa[i,paste0("EqualMeans_7_ASE")] = WindowedASE7
-  resultsa[i,paste0("EqualMeans_8_ASE")] = WindowedASE8
-  resultsa[i,paste0("EqualMeans_9_ASE")] = WindowedASE9
-  resultsa[i,paste0("EqualMeans_10_ASE")] = WindowedASE10
-  resultsa[i,paste0("EqualMeans_11_ASE")] = WindowedASE11
-  resultsa[i,paste0("EqualMeans_12_ASE")] = WindowedASE12
-  
-  resultsa[i,paste0("EqualMeans_F1")] = model0_mean  
-  resultsa[i,paste0("EqualMeans_F2")] = model0_mean  
-  resultsa[i,paste0("EqualMeans_F3")] = model0_mean  
-  resultsa[i,paste0("EqualMeans_F4")] = model0_mean  
-  resultsa[i,paste0("EqualMeans_F5")] = model0_mean  
-  resultsa[i,paste0("EqualMeans_F6")] = model0_mean  
-  resultsa[i,paste0("EqualMeans_F7")] = model0_mean  
-  resultsa[i,paste0("EqualMeans_F8")] = model0_mean  
-  resultsa[i,paste0("EqualMeans_F9")] = model0_mean  
-  resultsa[i,paste0("EqualMeans_F10")] = model0_mean  
-  resultsa[i,paste0("EqualMeans_F11")] = model0_mean  
-  resultsa[i,paste0("EqualMeans_F12")] = model0_mean  
-  
+  results[i,paste0("EqualMeans_1_ASE")] = WindowedASE1
+  results[i,paste0("EqualMeans_2_ASE")] = WindowedASE2
+  results[i,paste0("EqualMeans_3_ASE")] = WindowedASE3
+  results[i,paste0("EqualMeans_4_ASE")] = WindowedASE4
+  results[i,paste0("EqualMeans_5_ASE")] = WindowedASE5
+  results[i,paste0("EqualMeans_6_ASE")] = WindowedASE6
+  results[i,paste0("EqualMeans_7_ASE")] = WindowedASE7
+  results[i,paste0("EqualMeans_8_ASE")] = WindowedASE8
+  results[i,paste0("EqualMeans_9_ASE")] = WindowedASE9
+  results[i,paste0("EqualMeans_10_ASE")] = WindowedASE10
+  results[i,paste0("EqualMeans_11_ASE")] = WindowedASE11
+  results[i,paste0("EqualMeans_12_ASE")] = WindowedASE12
+  results[i,paste0("EqualMeans_F1")] = model0_mean  
+  results[i,paste0("EqualMeans_F2")] = model0_mean  
+  results[i,paste0("EqualMeans_F3")] = model0_mean  
+  results[i,paste0("EqualMeans_F4")] = model0_mean  
+  results[i,paste0("EqualMeans_F5")] = model0_mean  
+  results[i,paste0("EqualMeans_F6")] = model0_mean  
+  results[i,paste0("EqualMeans_F7")] = model0_mean  
+  results[i,paste0("EqualMeans_F8")] = model0_mean  
+  results[i,paste0("EqualMeans_F9")] = model0_mean  
+  results[i,paste0("EqualMeans_F10")] = model0_mean  
+  results[i,paste0("EqualMeans_F11")] = model0_mean  
+  results[i,paste0("EqualMeans_F12")] = model0_mean  
 
+  #AR Model
+  
+  trainingSize = 60
+  ASEHolder1 = numeric()
+  ASEHolder2 = numeric()
+  ASEHolder3 = numeric()
+  ASEHolder4 = numeric()
+  ASEHolder5 = numeric()
+  ASEHolder6 = numeric()
+  ASEHolder7 = numeric()
+  ASEHolder8 = numeric()
+  ASEHolder9 = numeric()
+  ASEHolder10 = numeric()
+  ASEHolder11 = numeric()
+  ASEHolder12 = numeric()
+  
+  for( k in 1:(84-(trainingSize + j) + 1))
+  {
+    sink("file")
+    model1 = invisible(aic.wge(temp1$STD_Cases[k:(k+(trainingSize-1))],q=0,type="aic"))
+    model1 = invisible(aic.wge(temp1$STD_Cases[k:(k+(trainingSize-1))],q=0,type="aic"))
+    if (model1$p == 0){
+      newphi = 1
+    } else {
+      newphi = model1$p
+    } 
+    model1_est = invisible(est.ar.wge(temp1$STD_Cases[k:(k+(trainingSize-1))],p=newphi))
+    forecasts = fore.aruma.wge(temp1$STD_Cases[k:(k+(trainingSize-1))],phi = model1_est$phi, theta = 0, s = 0, d = 0,n.ahead = j,plot=FALSE)
+
+    ASEHolder1[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 1 - 1)] - forecasts$f[1:1])^2)
+    ASEHolder2[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 2 - 1)] - forecasts$f[1:2])^2)
+    ASEHolder3[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 3 - 1)] - forecasts$f[1:3])^2)
+    ASEHolder4[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 4 - 1)] - forecasts$f[1:4])^2)
+    ASEHolder5[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 5 - 1)] - forecasts$f[1:5])^2)
+    ASEHolder6[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 6 - 1)] - forecasts$f[1:6])^2)
+    ASEHolder7[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 7 - 1)] - forecasts$f[1:7])^2)
+    ASEHolder8[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 8 - 1)] - forecasts$f[1:8])^2)
+    ASEHolder9[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 9 - 1)] - forecasts$f[1:9])^2)
+    ASEHolder10[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 10 - 1)] - forecasts$f[1:10])^2)
+    ASEHolder11[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 11 - 1)] - forecasts$f[1:11])^2)
+    ASEHolder12[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 12 - 1)] - forecasts$f[1:12])^2)
+    sink()
+    
+    assign(paste("AR_Results_",k,sep=""),(temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + j - 1)] - forecasts$f)^2)
+    assign(paste("AR_DF_",k,sep=""),trainingSize-(model1$p+1))
+
+  }
+  
+  WindowedASE1 = mean(ASEHolder1)
+  WindowedASE2 = mean(ASEHolder2)
+  WindowedASE3 = mean(ASEHolder3)
+  WindowedASE4 = mean(ASEHolder4)
+  WindowedASE5 = mean(ASEHolder5)
+  WindowedASE6 = mean(ASEHolder6)
+  WindowedASE7 = mean(ASEHolder7)
+  WindowedASE8 = mean(ASEHolder8)
+  WindowedASE9 = mean(ASEHolder9)
+  WindowedASE10 = mean(ASEHolder10)
+  WindowedASE11 = mean(ASEHolder11)
+  WindowedASE12 = mean(ASEHolder12)
+  results[i,paste0("AR_1_ASE")] = WindowedASE1
+  results[i,paste0("AR_2_ASE")] = WindowedASE2
+  results[i,paste0("AR_3_ASE")] = WindowedASE3
+  results[i,paste0("AR_4_ASE")] = WindowedASE4
+  results[i,paste0("AR_5_ASE")] = WindowedASE5
+  results[i,paste0("AR_6_ASE")] = WindowedASE6
+  results[i,paste0("AR_7_ASE")] = WindowedASE7
+  results[i,paste0("AR_8_ASE")] = WindowedASE8
+  results[i,paste0("AR_9_ASE")] = WindowedASE9
+  results[i,paste0("AR_10_ASE")] = WindowedASE10
+  results[i,paste0("AR_11_ASE")] = WindowedASE11
+  results[i,paste0("AR_12_ASE")] = WindowedASE12
+  results[i,paste0("AR_F1")] = forecasts$f[1]  
+  results[i,paste0("AR_F2")] = forecasts$f[2]   
+  results[i,paste0("AR_F3")] = forecasts$f[3]   
+  results[i,paste0("AR_F4")] = forecasts$f[4]   
+  results[i,paste0("AR_F5")] = forecasts$f[5]   
+  results[i,paste0("AR_F6")] = forecasts$f[6]   
+  results[i,paste0("AR_F7")] = forecasts$f[7]   
+  results[i,paste0("AR_F8")] = forecasts$f[8]   
+  results[i,paste0("AR_F9")] = forecasts$f[9]   
+  results[i,paste0("AR_F10")] = forecasts$f[10]   
+  results[i,paste0("AR_F11")] = forecasts$f[11]   
+  results[i,paste0("AR_F12")] = forecasts$f[12]  
+
+  
   #ARMA Model
   
   trainingSize = 60
@@ -2135,7 +3601,6 @@ resultsa <- data.frame(ljung_10=double(),
     ASEHolder10[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 10 - 1)] - forecasts$f[1:10])^2)
     ASEHolder11[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 11 - 1)] - forecasts$f[1:11])^2)
     ASEHolder12[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 12 - 1)] - forecasts$f[1:12])^2)
-    
     sink()
     
     assign(paste("ARMA_Results_",k,sep=""),(temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + j - 1)] - forecasts$f)^2)
@@ -2154,31 +3619,114 @@ resultsa <- data.frame(ljung_10=double(),
   WindowedASE10 = mean(ASEHolder10)
   WindowedASE11 = mean(ASEHolder11)
   WindowedASE12 = mean(ASEHolder12)
-  resultsa[i,paste0("ARMA_1_ASE")] = WindowedASE1
-  resultsa[i,paste0("ARMA_2_ASE")] = WindowedASE2
-  resultsa[i,paste0("ARMA_3_ASE")] = WindowedASE3
-  resultsa[i,paste0("ARMA_4_ASE")] = WindowedASE4
-  resultsa[i,paste0("ARMA_5_ASE")] = WindowedASE5
-  resultsa[i,paste0("ARMA_6_ASE")] = WindowedASE6
-  resultsa[i,paste0("ARMA_7_ASE")] = WindowedASE7
-  resultsa[i,paste0("ARMA_8_ASE")] = WindowedASE8
-  resultsa[i,paste0("ARMA_9_ASE")] = WindowedASE9
-  resultsa[i,paste0("ARMA_10_ASE")] = WindowedASE10
-  resultsa[i,paste0("ARMA_11_ASE")] = WindowedASE11
-  resultsa[i,paste0("ARMA_12_ASE")] = WindowedASE12
+  results[i,paste0("ARMA_1_ASE")] = WindowedASE1
+  results[i,paste0("ARMA_2_ASE")] = WindowedASE2
+  results[i,paste0("ARMA_3_ASE")] = WindowedASE3
+  results[i,paste0("ARMA_4_ASE")] = WindowedASE4
+  results[i,paste0("ARMA_5_ASE")] = WindowedASE5
+  results[i,paste0("ARMA_6_ASE")] = WindowedASE6
+  results[i,paste0("ARMA_7_ASE")] = WindowedASE7
+  results[i,paste0("ARMA_8_ASE")] = WindowedASE8
+  results[i,paste0("ARMA_9_ASE")] = WindowedASE9
+  results[i,paste0("ARMA_10_ASE")] = WindowedASE10
+  results[i,paste0("ARMA_11_ASE")] = WindowedASE11
+  results[i,paste0("ARMA_12_ASE")] = WindowedASE12
+  results[i,paste0("ARMA_F1")] = forecasts$f[1]  
+  results[i,paste0("ARMA_F2")] = forecasts$f[2]   
+  results[i,paste0("ARMA_F3")] = forecasts$f[3]   
+  results[i,paste0("ARMA_F4")] = forecasts$f[4]   
+  results[i,paste0("ARMA_F5")] = forecasts$f[5]   
+  results[i,paste0("ARMA_F6")] = forecasts$f[6]   
+  results[i,paste0("ARMA_F7")] = forecasts$f[7]   
+  results[i,paste0("ARMA_F8")] = forecasts$f[8]   
+  results[i,paste0("ARMA_F9")] = forecasts$f[9]   
+  results[i,paste0("ARMA_F10")] = forecasts$f[10]   
+  results[i,paste0("ARMA_F11")] = forecasts$f[11]   
+  results[i,paste0("ARMA_F12")] = forecasts$f[12]  
+
   
-  resultsa[i,paste0("ARMA_F1")] = forecasts$f[1]  
-  resultsa[i,paste0("ARMA_F2")] = forecasts$f[2]   
-  resultsa[i,paste0("ARMA_F3")] = forecasts$f[3]   
-  resultsa[i,paste0("ARMA_F4")] = forecasts$f[4]   
-  resultsa[i,paste0("ARMA_F5")] = forecasts$f[5]   
-  resultsa[i,paste0("ARMA_F6")] = forecasts$f[6]   
-  resultsa[i,paste0("ARMA_F7")] = forecasts$f[7]   
-  resultsa[i,paste0("ARMA_F8")] = forecasts$f[8]   
-  resultsa[i,paste0("ARMA_F9")] = forecasts$f[9]   
-  resultsa[i,paste0("ARMA_F10")] = forecasts$f[10]   
-  resultsa[i,paste0("ARMA_F11")] = forecasts$f[11]   
-  resultsa[i,paste0("ARMA_F12")] = forecasts$f[12]   
+  
+  #ARIMA Model with q=0 and d=1
+  nulldev()
+  temp2 = artrans.wge(temp1$STD_Cases,1)
+  dev.off()
+  
+  trainingSize = 60
+  ASEHolder1 = numeric()
+  ASEHolder2 = numeric()
+  ASEHolder3 = numeric()
+  ASEHolder4 = numeric()
+  ASEHolder5 = numeric()
+  ASEHolder6 = numeric()
+  ASEHolder7 = numeric()
+  ASEHolder8 = numeric()
+  ASEHolder9 = numeric()
+  ASEHolder10 = numeric()
+  ASEHolder11 = numeric()
+  ASEHolder12 = numeric()
+    
+  for( k in 1:(84-(trainingSize + j) + 1))
+  {
+    sink("file")
+    model1 = invisible(aic.wge(temp2[k:(k+(trainingSize-1-1))],q=0,type="aic"))
+    model1_est = invisible(est.ar.wge(temp2[k:(k+(trainingSize-1-1))],p=model1$p))
+    forecasts = fore.aruma.wge(temp1$STD_Cases[k:(k+(trainingSize-1))],phi = model1_est$phi, theta = 0, s = 0, d = 1,n.ahead = j,plot=FALSE)
+    ASEHolder1[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 1 - 1)] - forecasts$f[1:1])^2)
+    ASEHolder2[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 2 - 1)] - forecasts$f[1:2])^2)
+    ASEHolder3[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 3 - 1)] - forecasts$f[1:3])^2)
+    ASEHolder4[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 4 - 1)] - forecasts$f[1:4])^2)
+    ASEHolder5[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 5 - 1)] - forecasts$f[1:5])^2)
+    ASEHolder6[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 6 - 1)] - forecasts$f[1:6])^2)
+    ASEHolder7[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 7 - 1)] - forecasts$f[1:7])^2)
+    ASEHolder8[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 8 - 1)] - forecasts$f[1:8])^2)
+    ASEHolder9[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 9 - 1)] - forecasts$f[1:9])^2)
+    ASEHolder10[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 10 - 1)] - forecasts$f[1:10])^2)
+    ASEHolder11[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 11 - 1)] - forecasts$f[1:11])^2)
+    ASEHolder12[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 12 - 1)] - forecasts$f[1:12])^2)
+    sink()
+    
+    assign(paste("ARI_Results_",k,sep=""),(temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + j - 1)] - forecasts$f)^2)
+    assign(paste("ARI_DF_",k,sep=""),trainingSize-(model1$p+1))
+
+  }
+  
+  WindowedASE1 = mean(ASEHolder1)
+  WindowedASE2 = mean(ASEHolder2)
+  WindowedASE3 = mean(ASEHolder3)
+  WindowedASE4 = mean(ASEHolder4)
+  WindowedASE5 = mean(ASEHolder5)
+  WindowedASE6 = mean(ASEHolder6)
+  WindowedASE7 = mean(ASEHolder7)
+  WindowedASE8 = mean(ASEHolder8)
+  WindowedASE9 = mean(ASEHolder9)
+  WindowedASE10 = mean(ASEHolder10)
+  WindowedASE11 = mean(ASEHolder11)
+  WindowedASE12 = mean(ASEHolder12)
+  results[i,paste0("ARI_1_ASE")] = WindowedASE1
+  results[i,paste0("ARI_2_ASE")] = WindowedASE2
+  results[i,paste0("ARI_3_ASE")] = WindowedASE3
+  results[i,paste0("ARI_4_ASE")] = WindowedASE4
+  results[i,paste0("ARI_5_ASE")] = WindowedASE5
+  results[i,paste0("ARI_6_ASE")] = WindowedASE6
+  results[i,paste0("ARI_7_ASE")] = WindowedASE7
+  results[i,paste0("ARI_8_ASE")] = WindowedASE8
+  results[i,paste0("ARI_9_ASE")] = WindowedASE9
+  results[i,paste0("ARI_10_ASE")] = WindowedASE10
+  results[i,paste0("ARI_11_ASE")] = WindowedASE11
+  results[i,paste0("ARI_12_ASE")] = WindowedASE12
+  results[i,paste0("ARI_F1")] = forecasts$f[1]  
+  results[i,paste0("ARI_F2")] = forecasts$f[2]   
+  results[i,paste0("ARI_F3")] = forecasts$f[3]   
+  results[i,paste0("ARI_F4")] = forecasts$f[4]   
+  results[i,paste0("ARI_F5")] = forecasts$f[5]   
+  results[i,paste0("ARI_F6")] = forecasts$f[6]   
+  results[i,paste0("ARI_F7")] = forecasts$f[7]   
+  results[i,paste0("ARI_F8")] = forecasts$f[8]   
+  results[i,paste0("ARI_F9")] = forecasts$f[9]   
+  results[i,paste0("ARI_F10")] = forecasts$f[10]   
+  results[i,paste0("ARI_F11")] = forecasts$f[11]   
+  results[i,paste0("ARI_F12")] = forecasts$f[12]
+
   
   #ARIMA Model with d=1
   nulldev()
@@ -2217,7 +3765,6 @@ resultsa <- data.frame(ljung_10=double(),
     ASEHolder10[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 10 - 1)] - forecasts$f[1:10])^2)
     ASEHolder11[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 11 - 1)] - forecasts$f[1:11])^2)
     ASEHolder12[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 12 - 1)] - forecasts$f[1:12])^2)
-    
     sink()
     
     assign(paste("ARIMA_Results_",k,sep=""),(temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + j - 1)] - forecasts$f)^2)
@@ -2236,31 +3783,119 @@ resultsa <- data.frame(ljung_10=double(),
   WindowedASE10 = mean(ASEHolder10)
   WindowedASE11 = mean(ASEHolder11)
   WindowedASE12 = mean(ASEHolder12)
-  resultsa[i,paste0("ARIMA_1_ASE")] = WindowedASE1
-  resultsa[i,paste0("ARIMA_2_ASE")] = WindowedASE2
-  resultsa[i,paste0("ARIMA_3_ASE")] = WindowedASE3
-  resultsa[i,paste0("ARIMA_4_ASE")] = WindowedASE4
-  resultsa[i,paste0("ARIMA_5_ASE")] = WindowedASE5
-  resultsa[i,paste0("ARIMA_6_ASE")] = WindowedASE6
-  resultsa[i,paste0("ARIMA_7_ASE")] = WindowedASE7
-  resultsa[i,paste0("ARIMA_8_ASE")] = WindowedASE8
-  resultsa[i,paste0("ARIMA_9_ASE")] = WindowedASE9
-  resultsa[i,paste0("ARIMA_10_ASE")] = WindowedASE10
-  resultsa[i,paste0("ARIMA_11_ASE")] = WindowedASE11
-  resultsa[i,paste0("ARIMA_12_ASE")] = WindowedASE12
+  results[i,paste0("ARIMA_1_ASE")] = WindowedASE1
+  results[i,paste0("ARIMA_2_ASE")] = WindowedASE2
+  results[i,paste0("ARIMA_3_ASE")] = WindowedASE3
+  results[i,paste0("ARIMA_4_ASE")] = WindowedASE4
+  results[i,paste0("ARIMA_5_ASE")] = WindowedASE5
+  results[i,paste0("ARIMA_6_ASE")] = WindowedASE6
+  results[i,paste0("ARIMA_7_ASE")] = WindowedASE7
+  results[i,paste0("ARIMA_8_ASE")] = WindowedASE8
+  results[i,paste0("ARIMA_9_ASE")] = WindowedASE9
+  results[i,paste0("ARIMA_10_ASE")] = WindowedASE10
+  results[i,paste0("ARIMA_11_ASE")] = WindowedASE11
+  results[i,paste0("ARIMA_12_ASE")] = WindowedASE12
+  results[i,paste0("ARIMA_F1")] = forecasts$f[1]  
+  results[i,paste0("ARIMA_F2")] = forecasts$f[2]   
+  results[i,paste0("ARIMA_F3")] = forecasts$f[3]   
+  results[i,paste0("ARIMA_F4")] = forecasts$f[4]   
+  results[i,paste0("ARIMA_F5")] = forecasts$f[5]   
+  results[i,paste0("ARIMA_F6")] = forecasts$f[6]   
+  results[i,paste0("ARIMA_F7")] = forecasts$f[7]   
+  results[i,paste0("ARIMA_F8")] = forecasts$f[8]   
+  results[i,paste0("ARIMA_F9")] = forecasts$f[9]   
+  results[i,paste0("ARIMA_F10")] = forecasts$f[10]   
+  results[i,paste0("ARIMA_F11")] = forecasts$f[11]   
+  results[i,paste0("ARIMA_F12")] = forecasts$f[12]
+
   
-  resultsa[i,paste0("ARIMA_F1")] = forecasts$f[1]  
-  resultsa[i,paste0("ARIMA_F2")] = forecasts$f[2]   
-  resultsa[i,paste0("ARIMA_F3")] = forecasts$f[3]   
-  resultsa[i,paste0("ARIMA_F4")] = forecasts$f[4]   
-  resultsa[i,paste0("ARIMA_F5")] = forecasts$f[5]   
-  resultsa[i,paste0("ARIMA_F6")] = forecasts$f[6]   
-  resultsa[i,paste0("ARIMA_F7")] = forecasts$f[7]   
-  resultsa[i,paste0("ARIMA_F8")] = forecasts$f[8]   
-  resultsa[i,paste0("ARIMA_F9")] = forecasts$f[9]   
-  resultsa[i,paste0("ARIMA_F10")] = forecasts$f[10]   
-  resultsa[i,paste0("ARIMA_F11")] = forecasts$f[11]   
-  resultsa[i,paste0("ARIMA_F12")] = forecasts$f[12] 
+ 
+#ARIMA Model with q=0 and S=12
+  nulldev()
+  temp2 = artrans.wge(temp1$STD_Cases,phi.tr=c(rep(0,11),1))
+  dev.off()
+  
+  trainingSize = 60
+  ASEHolder1 = numeric()
+  ASEHolder2 = numeric()
+  ASEHolder3 = numeric()
+  ASEHolder4 = numeric()
+  ASEHolder5 = numeric()
+  ASEHolder6 = numeric()
+  ASEHolder7 = numeric()
+  ASEHolder8 = numeric()
+  ASEHolder9 = numeric()
+  ASEHolder10 = numeric()
+  ASEHolder11 = numeric()
+  ASEHolder12 = numeric()
+  
+  for( k in 1:(84-(trainingSize + j) + 1))
+  {
+    sink("file")
+    model1 = invisible(aic.wge(temp2[k:(k+(trainingSize-1-12))],q=0, type="aic"))
+    if (model1$p == 0){
+      newphi = 1
+    } else {
+      newphi = model1$p
+    } 
+    model1_est = invisible(est.ar.wge(temp2[k:(k+(trainingSize-1-12))],p=newphi))
+    forecasts = fore.aruma.wge(temp1$STD_Cases[k:(k+(trainingSize-1))],phi = model1_est$phi, theta = 0, s = 12, d = 0,n.ahead = j,plot=FALSE)
+    ASEHolder1[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 1 - 1)] - forecasts$f[1:1])^2)
+    ASEHolder2[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 2 - 1)] - forecasts$f[1:2])^2)
+    ASEHolder3[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 3 - 1)] - forecasts$f[1:3])^2)
+    ASEHolder4[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 4 - 1)] - forecasts$f[1:4])^2)
+    ASEHolder5[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 5 - 1)] - forecasts$f[1:5])^2)
+    ASEHolder6[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 6 - 1)] - forecasts$f[1:6])^2)
+    ASEHolder7[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 7 - 1)] - forecasts$f[1:7])^2)
+    ASEHolder8[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 8 - 1)] - forecasts$f[1:8])^2)
+    ASEHolder9[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 9 - 1)] - forecasts$f[1:9])^2)
+    ASEHolder10[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 10 - 1)] - forecasts$f[1:10])^2)
+    ASEHolder11[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 11 - 1)] - forecasts$f[1:11])^2)
+    ASEHolder12[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 12 - 1)] - forecasts$f[1:12])^2)
+    sink()
+    
+    assign(paste("ARIS_Results_",k,sep=""),(temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + j - 1)] - forecasts$f)^2)
+    assign(paste("ARIS_DF_",k,sep=""),trainingSize-(newphi+1))
+
+  }
+  
+  WindowedASE1 = mean(ASEHolder1)
+  WindowedASE2 = mean(ASEHolder2)
+  WindowedASE3 = mean(ASEHolder3)
+  WindowedASE4 = mean(ASEHolder4)
+  WindowedASE5 = mean(ASEHolder5)
+  WindowedASE6 = mean(ASEHolder6)
+  WindowedASE7 = mean(ASEHolder7)
+  WindowedASE8 = mean(ASEHolder8)
+  WindowedASE9 = mean(ASEHolder9)
+  WindowedASE10 = mean(ASEHolder10)
+  WindowedASE11 = mean(ASEHolder11)
+  WindowedASE12 = mean(ASEHolder12)
+  results[i,paste0("ARI_S12_1_ASE")] = WindowedASE1
+  results[i,paste0("ARI_S12_2_ASE")] = WindowedASE2
+  results[i,paste0("ARI_S12_3_ASE")] = WindowedASE3
+  results[i,paste0("ARI_S12_4_ASE")] = WindowedASE4
+  results[i,paste0("ARI_S12_5_ASE")] = WindowedASE5
+  results[i,paste0("ARI_S12_6_ASE")] = WindowedASE6
+  results[i,paste0("ARI_S12_7_ASE")] = WindowedASE7
+  results[i,paste0("ARI_S12_8_ASE")] = WindowedASE8
+  results[i,paste0("ARI_S12_9_ASE")] = WindowedASE9
+  results[i,paste0("ARI_S12_10_ASE")] = WindowedASE10
+  results[i,paste0("ARI_S12_11_ASE")] = WindowedASE11
+  results[i,paste0("ARI_S12_12_ASE")] = WindowedASE12
+  results[i,paste0("ARI_S12_F1")] = forecasts$f[1]  
+  results[i,paste0("ARI_S12_F2")] = forecasts$f[2]   
+  results[i,paste0("ARI_S12_F3")] = forecasts$f[3]   
+  results[i,paste0("ARI_S12_F4")] = forecasts$f[4]   
+  results[i,paste0("ARI_S12_F5")] = forecasts$f[5]   
+  results[i,paste0("ARI_S12_F6")] = forecasts$f[6]   
+  results[i,paste0("ARI_S12_F7")] = forecasts$f[7]   
+  results[i,paste0("ARI_S12_F8")] = forecasts$f[8]   
+  results[i,paste0("ARI_S12_F9")] = forecasts$f[9]   
+  results[i,paste0("ARI_S12_F10")] = forecasts$f[10]   
+  results[i,paste0("ARI_S12_F11")] = forecasts$f[11]   
+  results[i,paste0("ARI_S12_F12")] = forecasts$f[12]   
+
   
   
   #ARIMA Model with S=12
@@ -2300,7 +3935,6 @@ resultsa <- data.frame(ljung_10=double(),
     ASEHolder10[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 10 - 1)] - forecasts$f[1:10])^2)
     ASEHolder11[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 11 - 1)] - forecasts$f[1:11])^2)
     ASEHolder12[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 12 - 1)] - forecasts$f[1:12])^2)
-    
     sink()
     
     assign(paste("ARIMAS_Results_",k,sep=""),(temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + j - 1)] - forecasts$f)^2)
@@ -2319,78 +3953,264 @@ resultsa <- data.frame(ljung_10=double(),
   WindowedASE10 = mean(ASEHolder10)
   WindowedASE11 = mean(ASEHolder11)
   WindowedASE12 = mean(ASEHolder12)
-  resultsa[i,paste0("ARIMA_S12_1_ASE")] = WindowedASE1
-  resultsa[i,paste0("ARIMA_S12_2_ASE")] = WindowedASE2
-  resultsa[i,paste0("ARIMA_S12_3_ASE")] = WindowedASE3
-  resultsa[i,paste0("ARIMA_S12_4_ASE")] = WindowedASE4
-  resultsa[i,paste0("ARIMA_S12_5_ASE")] = WindowedASE5
-  resultsa[i,paste0("ARIMA_S12_6_ASE")] = WindowedASE6
-  resultsa[i,paste0("ARIMA_S12_7_ASE")] = WindowedASE7
-  resultsa[i,paste0("ARIMA_S12_8_ASE")] = WindowedASE8
-  resultsa[i,paste0("ARIMA_S12_9_ASE")] = WindowedASE9
-  resultsa[i,paste0("ARIMA_S12_10_ASE")] = WindowedASE10
-  resultsa[i,paste0("ARIMA_S12_11_ASE")] = WindowedASE11
-  resultsa[i,paste0("ARIMA_S12_12_ASE")] = WindowedASE12
+  results[i,paste0("ARIMA_S12_1_ASE")] = WindowedASE1
+  results[i,paste0("ARIMA_S12_2_ASE")] = WindowedASE2
+  results[i,paste0("ARIMA_S12_3_ASE")] = WindowedASE3
+  results[i,paste0("ARIMA_S12_4_ASE")] = WindowedASE4
+  results[i,paste0("ARIMA_S12_5_ASE")] = WindowedASE5
+  results[i,paste0("ARIMA_S12_6_ASE")] = WindowedASE6
+  results[i,paste0("ARIMA_S12_7_ASE")] = WindowedASE7
+  results[i,paste0("ARIMA_S12_8_ASE")] = WindowedASE8
+  results[i,paste0("ARIMA_S12_9_ASE")] = WindowedASE9
+  results[i,paste0("ARIMA_S12_10_ASE")] = WindowedASE10
+  results[i,paste0("ARIMA_S12_11_ASE")] = WindowedASE11
+  results[i,paste0("ARIMA_S12_12_ASE")] = WindowedASE12
+  results[i,paste0("ARIMA_S12_F1")] = forecasts$f[1]  
+  results[i,paste0("ARIMA_S12_F2")] = forecasts$f[2]   
+  results[i,paste0("ARIMA_S12_F3")] = forecasts$f[3]   
+  results[i,paste0("ARIMA_S12_F4")] = forecasts$f[4]   
+  results[i,paste0("ARIMA_S12_F5")] = forecasts$f[5]   
+  results[i,paste0("ARIMA_S12_F6")] = forecasts$f[6]   
+  results[i,paste0("ARIMA_S12_F7")] = forecasts$f[7]   
+  results[i,paste0("ARIMA_S12_F8")] = forecasts$f[8]   
+  results[i,paste0("ARIMA_S12_F9")] = forecasts$f[9]   
+  results[i,paste0("ARIMA_S12_F10")] = forecasts$f[10]   
+  results[i,paste0("ARIMA_S12_F11")] = forecasts$f[11]   
+  results[i,paste0("ARIMA_S12_F12")] = forecasts$f[12]   
 
-  resultsa[i,paste0("ARIMA_S12_F1")] = forecasts$f[1]  
-  resultsa[i,paste0("ARIMA_S12_F2")] = forecasts$f[2]   
-  resultsa[i,paste0("ARIMA_S12_F3")] = forecasts$f[3]   
-  resultsa[i,paste0("ARIMA_S12_F4")] = forecasts$f[4]   
-  resultsa[i,paste0("ARIMA_S12_F5")] = forecasts$f[5]   
-  resultsa[i,paste0("ARIMA_S12_F6")] = forecasts$f[6]   
-  resultsa[i,paste0("ARIMA_S12_F7")] = forecasts$f[7]   
-  resultsa[i,paste0("ARIMA_S12_F8")] = forecasts$f[8]   
-  resultsa[i,paste0("ARIMA_S12_F9")] = forecasts$f[9]   
-  resultsa[i,paste0("ARIMA_S12_F10")] = forecasts$f[10]   
-  resultsa[i,paste0("ARIMA_S12_F11")] = forecasts$f[11]   
-  resultsa[i,paste0("ARIMA_S12_F12")] = forecasts$f[12]   
   
   
-  resultsa[i,paste0("ACTUAL_1")] = temp1$STD_Cases[73]
-  resultsa[i,paste0("ACTUAL_2")] = temp1$STD_Cases[74]
-  resultsa[i,paste0("ACTUAL_3")] = temp1$STD_Cases[75]
-  resultsa[i,paste0("ACTUAL_4")] = temp1$STD_Cases[76]
-  resultsa[i,paste0("ACTUAL_5")] = temp1$STD_Cases[77]
-  resultsa[i,paste0("ACTUAL_6")] = temp1$STD_Cases[78]
-  resultsa[i,paste0("ACTUAL_7")] = temp1$STD_Cases[79]
-  resultsa[i,paste0("ACTUAL_8")] = temp1$STD_Cases[80]
-  resultsa[i,paste0("ACTUAL_9")] = temp1$STD_Cases[81]
-  resultsa[i,paste0("ACTUAL_10")] = temp1$STD_Cases[82]
-  resultsa[i,paste0("ACTUAL_11")] = temp1$STD_Cases[83]
-  resultsa[i,paste0("ACTUAL_12")] = temp1$STD_Cases[84]
+  #Random Forest
+  trainingSize = 60
+  ASEHolder1 = numeric()
+  ASEHolder2 = numeric()
+  ASEHolder3 = numeric()
+  ASEHolder4 = numeric()
+  ASEHolder5 = numeric()
+  ASEHolder6 = numeric()
+  ASEHolder7 = numeric()
+  ASEHolder8 = numeric()
+  ASEHolder9 = numeric()
+  ASEHolder10 = numeric()
+  ASEHolder11 = numeric()
+  ASEHolder12 = numeric()
+  
+  for( k in 1:(84-(trainingSize + j) + 1))
+  {
+    sink("file")
+   
+    forecasts <- rf_ts(j, temp1[k:(k+(trainingSize-1)),], FALSE)
+    
+    ASEHolder1[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 1 - 1)] - forecasts$forecast[1:1])^2)
+    ASEHolder2[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 2 - 1)] - forecasts$forecast[1:2])^2)
+    ASEHolder3[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 3 - 1)] - forecasts$forecast[1:3])^2)
+    ASEHolder4[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 4 - 1)] - forecasts$forecast[1:4])^2)
+    ASEHolder5[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 5 - 1)] - forecasts$forecast[1:5])^2)
+    ASEHolder6[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 6 - 1)] - forecasts$forecast[1:6])^2)
+    ASEHolder7[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 7 - 1)] - forecasts$forecast[1:7])^2)
+    ASEHolder8[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 8 - 1)] - forecasts$forecast[1:8])^2)
+    ASEHolder9[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 9 - 1)] - forecasts$forecast[1:9])^2)
+    ASEHolder10[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 10 - 1)] - forecasts$forecast[1:10])^2)
+    ASEHolder11[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 11 - 1)] - forecasts$forecast[1:11])^2)
+    ASEHolder12[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 12 - 1)] - forecasts$forecast[1:12])^2)
+    sink()
+    
+    assign(paste("RF_Results_",k,sep=""),(temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + j - 1)] - forecasts$forecast)^2)
+
+  }
+  
+  WindowedASE1 = mean(ASEHolder1)
+  WindowedASE2 = mean(ASEHolder2)
+  WindowedASE3 = mean(ASEHolder3)
+  WindowedASE4 = mean(ASEHolder4)
+  WindowedASE5 = mean(ASEHolder5)
+  WindowedASE6 = mean(ASEHolder6)
+  WindowedASE7 = mean(ASEHolder7)
+  WindowedASE8 = mean(ASEHolder8)
+  WindowedASE9 = mean(ASEHolder9)
+  WindowedASE10 = mean(ASEHolder10)
+  WindowedASE11 = mean(ASEHolder11)
+  WindowedASE12 = mean(ASEHolder12)
+  results[i,paste0("RF_1_ASE")] = WindowedASE1
+  results[i,paste0("RF_2_ASE")] = WindowedASE2
+  results[i,paste0("RF_3_ASE")] = WindowedASE3
+  results[i,paste0("RF_4_ASE")] = WindowedASE4
+  results[i,paste0("RF_5_ASE")] = WindowedASE5
+  results[i,paste0("RF_6_ASE")] = WindowedASE6
+  results[i,paste0("RF_7_ASE")] = WindowedASE7
+  results[i,paste0("RF_8_ASE")] = WindowedASE8
+  results[i,paste0("RF_9_ASE")] = WindowedASE9
+  results[i,paste0("RF_10_ASE")] = WindowedASE10
+  results[i,paste0("RF_11_ASE")] = WindowedASE11
+  results[i,paste0("RF_12_ASE")] = WindowedASE12
+  results[i,paste0("RF_F1")] = forecasts$forecast[1]  
+  results[i,paste0("RF_F2")] = forecasts$forecast[2]   
+  results[i,paste0("RF_F3")] = forecasts$forecast[3]   
+  results[i,paste0("RF_F4")] = forecasts$forecast[4]   
+  results[i,paste0("RF_F5")] = forecasts$forecast[5]   
+  results[i,paste0("RF_F6")] = forecasts$forecast[6]   
+  results[i,paste0("RF_F7")] = forecasts$forecast[7]   
+  results[i,paste0("RF_F8")] = forecasts$forecast[8]   
+  results[i,paste0("RF_F9")] = forecasts$forecast[9]   
+  results[i,paste0("RF_F10")] = forecasts$forecast[10]   
+  results[i,paste0("RF_F11")] = forecasts$forecast[11]   
+  results[i,paste0("RF_F12")] = forecasts$forecast[12]   
+
+  
+  
+  # MLP
+  trainingSize = 60
+  ASEHolder1 = numeric()
+  ASEHolder2 = numeric()
+  ASEHolder3 = numeric()
+  ASEHolder4 = numeric()
+  ASEHolder5 = numeric()
+  ASEHolder6 = numeric()
+  ASEHolder7 = numeric()
+  ASEHolder8 = numeric()
+  ASEHolder9 = numeric()
+  ASEHolder10 = numeric()
+  ASEHolder11 = numeric()
+  ASEHolder12 = numeric()
+  
+  for( k in 1:(84-(trainingSize + j) + 1))
+  {
+    sink("file")
+
+    forecasts <- nnc(temp1$STD_Cases[k:(k+(trainingSize-1))], j, 10, c(5, 10, 15, 5), FALSE)
+    
+    ASEHolder1[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 1 - 1)] - forecasts$forecast[1:1])^2)
+    ASEHolder2[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 2 - 1)] - forecasts$forecast[1:2])^2)
+    ASEHolder3[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 3 - 1)] - forecasts$forecast[1:3])^2)
+    ASEHolder4[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 4 - 1)] - forecasts$forecast[1:4])^2)
+    ASEHolder5[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 5 - 1)] - forecasts$forecast[1:5])^2)
+    ASEHolder6[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 6 - 1)] - forecasts$forecast[1:6])^2)
+    ASEHolder7[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 7 - 1)] - forecasts$forecast[1:7])^2)
+    ASEHolder8[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 8 - 1)] - forecasts$forecast[1:8])^2)
+    ASEHolder9[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 9 - 1)] - forecasts$forecast[1:9])^2)
+    ASEHolder10[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 10 - 1)] - forecasts$forecast[1:10])^2)
+    ASEHolder11[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 11 - 1)] - forecasts$forecast[1:11])^2)
+    ASEHolder12[k] = mean((temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + 12 - 1)] - forecasts$forecast[1:12])^2)
+    sink()
+    
+    assign(paste("MLP_Results_",k,sep=""),(temp1$STD_Cases[(trainingSize+k):(trainingSize+ k + j - 1)] - forecasts$forecast)^2)
+
+  }
+  
+  WindowedASE1 = mean(ASEHolder1)
+  WindowedASE2 = mean(ASEHolder2)
+  WindowedASE3 = mean(ASEHolder3)
+  WindowedASE4 = mean(ASEHolder4)
+  WindowedASE5 = mean(ASEHolder5)
+  WindowedASE6 = mean(ASEHolder6)
+  WindowedASE7 = mean(ASEHolder7)
+  WindowedASE8 = mean(ASEHolder8)
+  WindowedASE9 = mean(ASEHolder9)
+  WindowedASE10 = mean(ASEHolder10)
+  WindowedASE11 = mean(ASEHolder11)
+  WindowedASE12 = mean(ASEHolder12)
+  results[i,paste0("MLP_1_ASE")] = WindowedASE1
+  results[i,paste0("MLP_2_ASE")] = WindowedASE2
+  results[i,paste0("MLP_3_ASE")] = WindowedASE3
+  results[i,paste0("MLP_4_ASE")] = WindowedASE4
+  results[i,paste0("MLP_5_ASE")] = WindowedASE5
+  results[i,paste0("MLP_6_ASE")] = WindowedASE6
+  results[i,paste0("MLP_7_ASE")] = WindowedASE7
+  results[i,paste0("MLP_8_ASE")] = WindowedASE8
+  results[i,paste0("MLP_9_ASE")] = WindowedASE9
+  results[i,paste0("MLP_10_ASE")] = WindowedASE10
+  results[i,paste0("MLP_11_ASE")] = WindowedASE11
+  results[i,paste0("MLP_12_ASE")] = WindowedASE12
+  results[i,paste0("MLP_F1")] = forecasts$forecast[1]  
+  results[i,paste0("MLP_F2")] = forecasts$forecast[2]   
+  results[i,paste0("MLP_F3")] = forecasts$forecast[3]   
+  results[i,paste0("MLP_F4")] = forecasts$forecast[4]   
+  results[i,paste0("MLP_F5")] = forecasts$forecast[5]   
+  results[i,paste0("MLP_F6")] = forecasts$forecast[6]   
+  results[i,paste0("MLP_F7")] = forecasts$forecast[7]   
+  results[i,paste0("MLP_F8")] = forecasts$forecast[8]   
+  results[i,paste0("MLP_F9")] = forecasts$forecast[9]   
+  results[i,paste0("MLP_F10")] = forecasts$forecast[10]   
+  results[i,paste0("MLP_F11")] = forecasts$forecast[11]   
+  results[i,paste0("MLP_F12")] = forecasts$forecast[12]   
+
+  
+  results[i,paste0("ACTUAL_1")] = temp1$STD_Cases[73]
+  results[i,paste0("ACTUAL_2")] = temp1$STD_Cases[74]
+  results[i,paste0("ACTUAL_3")] = temp1$STD_Cases[75]
+  results[i,paste0("ACTUAL_4")] = temp1$STD_Cases[76]
+  results[i,paste0("ACTUAL_5")] = temp1$STD_Cases[77]
+  results[i,paste0("ACTUAL_6")] = temp1$STD_Cases[78]
+  results[i,paste0("ACTUAL_7")] = temp1$STD_Cases[79]
+  results[i,paste0("ACTUAL_8")] = temp1$STD_Cases[80]
+  results[i,paste0("ACTUAL_9")] = temp1$STD_Cases[81]
+  results[i,paste0("ACTUAL_10")] = temp1$STD_Cases[82]
+  results[i,paste0("ACTUAL_11")] = temp1$STD_Cases[83]
+  results[i,paste0("ACTUAL_12")] = temp1$STD_Cases[84]
+
   
   #graph ASEs for each Model
   EqualMeans_Results <- rbind(EqualMeans_Results_1,EqualMeans_Results_2,EqualMeans_Results_3,EqualMeans_Results_4,EqualMeans_Results_5,EqualMeans_Results_6,
                               EqualMeans_Results_7,EqualMeans_Results_8,EqualMeans_Results_9,EqualMeans_Results_10,EqualMeans_Results_11,EqualMeans_Results_12,
                               EqualMeans_Results_13)
   
+  AR_Results <- rbind(AR_Results_1,AR_Results_2,AR_Results_3,AR_Results_4,AR_Results_5,AR_Results_6,AR_Results_7,AR_Results_8,AR_Results_9,AR_Results_10,
+                      AR_Results_11,AR_Results_12,AR_Results_13)
+  
   ARMA_Results <- rbind(ARMA_Results_1,ARMA_Results_2,ARMA_Results_3,ARMA_Results_4,ARMA_Results_5,ARMA_Results_6,ARMA_Results_7,ARMA_Results_8,
                        ARMA_Results_9,ARMA_Results_10,ARMA_Results_11,ARMA_Results_12,ARMA_Results_13)
 
+  ARI_Results <- rbind(ARI_Results_1,ARI_Results_2,ARI_Results_3,ARI_Results_4,ARI_Results_5,ARI_Results_6,ARI_Results_7,ARI_Results_8,
+                         ARI_Results_9,ARI_Results_10,ARI_Results_11,ARI_Results_12,ARI_Results_13)
+ 
   ARIMA_Results <- rbind(ARIMA_Results_1,ARIMA_Results_2,ARIMA_Results_3,ARIMA_Results_4,ARIMA_Results_5,ARIMA_Results_6,ARIMA_Results_7,ARIMA_Results_8,
                          ARIMA_Results_9,ARIMA_Results_10,ARIMA_Results_11,ARIMA_Results_12,ARIMA_Results_13)
       
+  ARIS_Results <- rbind(ARIS_Results_1,ARIS_Results_2,ARIS_Results_3,ARIS_Results_4,ARIS_Results_5,ARIS_Results_6,ARIS_Results_7,ARIS_Results_8,
+                          ARIS_Results_9,ARIS_Results_10,ARIS_Results_11,ARIS_Results_12,ARIS_Results_13)
+  
   ARIMAS_Results <- rbind(ARIMAS_Results_1,ARIMAS_Results_2,ARIMAS_Results_3,ARIMAS_Results_4,ARIMAS_Results_5,ARIMAS_Results_6,ARIMAS_Results_7,ARIMAS_Results_8,
                           ARIMAS_Results_9,ARIMAS_Results_10,ARIMAS_Results_11,ARIMAS_Results_12,ARIMAS_Results_13)
+  
+  RF_Results <- rbind(RF_Results_1,RF_Results_2,RF_Results_3,RF_Results_4,RF_Results_5,RF_Results_6,RF_Results_7,RF_Results_8,
+                        RF_Results_9,RF_Results_10,RF_Results_11,RF_Results_12,RF_Results_13)
+    
+  MLP_Results <- rbind(MLP_Results_1,MLP_Results_2,MLP_Results_3,MLP_Results_4,MLP_Results_5,MLP_Results_6,MLP_Results_7,MLP_Results_8,
+                      MLP_Results_9,MLP_Results_10,MLP_Results_11,MLP_Results_12,MLP_Results_13)
       
   EqualMeans_Means <- colMeans(EqualMeans_Results)
+  AR_Means <- colMeans(AR_Results)
   ARMA_Means <- colMeans(ARMA_Results)
+  ARI_Means <- colMeans(ARI_Results)
   ARIMA_Means <- colMeans(ARIMA_Results)
+  ARIS_Means <- colMeans(ARIS_Results)
   ARIMAS_Means <- colMeans(ARIMAS_Results)
-  Combined_Means <- data.frame(EqualMeans_Means,ARMA_Means, ARIMA_Means, ARIMAS_Means)
+  RF_Means <- colMeans(RF_Results)
+  MLP_Means <- colMeans(MLP_Results)
+  Combined_Means <- data.frame(EqualMeans_Means,AR_Means, ARMA_Means, ARI_Means, ARIMA_Means, ARIS_Means, ARIMAS_Means,RF_Means,MLP_Means)
   Combined_Means$horizon <- as.numeric(row.names(Combined_Means))
   
-
+# more colors #73EBAE
   g <- ggplot(data=Combined_Means, aes(horizon)) +
     geom_line(aes(y=EqualMeans_Means, color="Equal Means"),size=1.5) +
+    geom_line(aes(y=AR_Means, color="AR"),size=1.5) +
     geom_line(aes(y=ARMA_Means, color="ARMA"),size=1.5) +
-    geom_line(aes(y=ARIMA_Means, color="ARIMA"),size=1.5) +
-    geom_line(aes(y=ARIMAS_Means, color="ARIMAS"),size=1.5) +
+    geom_line(aes(y=ARI_Means, color="AR with d=1"),size=1.5) +
+    geom_line(aes(y=ARIMA_Means, color="ARIMA with d=1"),size=1.5) +
+    geom_line(aes(y=ARIS_Means, color="AR with s=12"),size=1.5) +
+    geom_line(aes(y=ARIMAS_Means, color="ARIMA with d=0, s=12"),size=1.5) +
+    geom_line(aes(y=RF_Means, color="Random Forest"),size=1.5) +
+    geom_line(aes(y=MLP_Means, color="MLP"),size=1.5) +
     scale_color_manual(values = c(
-      'Equal Means' = '#58508d',
-      'ARMA' = '#bc5090',
-      'ARIMA' = '#ff6361',
-      'ARIMAS' = '#ffa600'
+      'Equal Means' = '#004159',
+      'AR' = '#65A8C4',
+      'ARMA' = '#8C65D3',
+      'AR with d=1' = '#9A93EC',
+      'ARIMA with d=1' = '#0052A5',
+      'AR with s=12' = '#413BF7',
+      'ARIMA with d=0, s=12' = '#00ADCE',
+      'Random Forest' = '#59DBF1',
+      'MLP' = '#00C590'
     )) +
     labs(color='Models') +
     scale_x_continuous(breaks=seq(0,13,1)) +
@@ -2400,10 +4220,106 @@ resultsa <- data.frame(ljung_10=double(),
     theme(panel.background = element_blank(), axis.line = element_line(colour = "black"), legend.title = element_blank())
   
   print(g)
+  
+# f-statistic calculations
+  EqualMeans_DF <- rbind(EqualMeans_DF_1,EqualMeans_DF_2,EqualMeans_DF_3,EqualMeans_DF_4,EqualMeans_DF_5,EqualMeans_DF_6,EqualMeans_DF_7,
+                         EqualMeans_DF_8,EqualMeans_DF_9,EqualMeans_DF_10,EqualMeans_DF_11,EqualMeans_DF_12,EqualMeans_DF_13)
+  
+  AR_DF <- rbind(AR_DF_1,AR_DF_2,AR_DF_3,AR_DF_4,AR_DF_5,AR_DF_6,AR_DF_7,AR_DF_8,AR_DF_9,AR_DF_10,AR_DF_11,AR_DF_12,AR_DF_13)
+  
+  ARI_DF <- rbind(ARI_DF_1,ARI_DF_2,ARI_DF_3,ARI_DF_4,ARI_DF_5,ARI_DF_6,ARI_DF_7,ARI_DF_8,ARI_DF_9,ARI_DF_10,ARI_DF_11,ARI_DF_12,ARI_DF_13)
+  
+  ARIS_DF <- rbind(ARIS_DF_1,ARIS_DF_2,ARIS_DF_3,ARIS_DF_4,ARIS_DF_5,ARIS_DF_6,ARIS_DF_7,ARIS_DF_8,ARIS_DF_9,ARIS_DF_10,ARIS_DF_11,ARIS_DF_12,ARIS_DF_13)
+  
+  
+  EqualMeans_Results <- rbind(sum(EqualMeans_Results_1),sum(EqualMeans_Results_2),sum(EqualMeans_Results_3),sum(EqualMeans_Results_4),sum(EqualMeans_Results_5),
+                              sum(EqualMeans_Results_6),sum(EqualMeans_Results_7),sum(EqualMeans_Results_8),sum(EqualMeans_Results_9),sum(EqualMeans_Results_10),
+                              sum(EqualMeans_Results_11),sum(EqualMeans_Results_12),sum(EqualMeans_Results_13))
+  
+  AR_Results <- rbind(sum(AR_Results_1),sum(AR_Results_2),sum(AR_Results_3),sum(AR_Results_4),sum(AR_Results_5),sum(AR_Results_6),sum(AR_Results_7),
+                      sum(AR_Results_8),sum(AR_Results_9),sum(AR_Results_10),sum(AR_Results_11),sum(AR_Results_12),sum(AR_Results_13))
+  
+  ARI_Results <- rbind(sum(ARI_Results_1),sum(ARI_Results_2),sum(ARI_Results_3),sum(ARI_Results_4),sum(ARI_Results_5),sum(ARI_Results_6),sum(ARI_Results_7),
+                       sum(ARI_Results_8),sum(ARI_Results_9),sum(ARI_Results_10),sum(ARI_Results_11),sum(ARI_Results_12),sum(ARI_Results_13))
+  
+  ARIS_Results <- rbind(sum(ARIS_Results_1),sum(ARIS_Results_2),sum(ARIS_Results_3),sum(ARIS_Results_4),sum(ARIS_Results_5),sum(ARIS_Results_6),sum(ARIS_Results_7),
+                       sum(ARIS_Results_8),sum(ARIS_Results_9),sum(ARIS_Results_10),sum(ARIS_Results_11),sum(ARIS_Results_12),sum(ARIS_Results_13))
+  
+  df_model = EqualMeans_DF - AR_DF
+  ss_model = EqualMeans_Results - AR_Results
+  ms_model = ss_model/df_model
+  ms_ar = AR_Results/AR_DF
+  F = ms_model/ms_ar
+  AR_p_value = pf(F,df_model,AR_DF,lower.tail=FALSE)
+  AR_p_tally = sum(AR_p_value[,1]<.05)
+  results[i,"AR_F_Tally"] = AR_p_tally
+  
+  if (AR_p_tally >= 9){
+    results[i,"AR_F_Conclusion"] = "Different"
+  } else if (AR_p_tally <= 4){
+    results[i,"AR_F_Conclusion"] = "Same"
+  } else {
+     results[i,"AR_F_Conclusion"] = "Inconclusive"
+  }
 
+  df_model = EqualMeans_DF - ARI_DF
+  ss_model = EqualMeans_Results - ARI_Results
+  ms_model = ss_model/df_model
+  ms_ari = ARI_Results/ARI_DF
+  F = ms_model/ms_ari
+  ARI_p_value = pf(F,df_model,ARI_DF,lower.tail=FALSE)
+  ARI_p_tally = sum(ARI_p_value[,1]<.05)
+  results[i,"ARI_F_Tally"] = ARI_p_tally
+  
+  if (ARI_p_tally >= 9){
+    results[i,"ARI_F_Conclusion"] = "Different"
+  } else if (ARI_p_tally <= 4){
+    results[i,"ARI_F_Conclusion"] = "Same"
+  } else {
+    results[i,"ARI_F_Conclusion"] = "Inconclusive"
+  }
 
-resultsa$winning_12 <- colnames(resultsa[c("EqualMeans_12_ASE","ARMA_12_ASE","ARIMA_12_ASE","ARIMA_S12_12_ASE")])[apply(resultsa[c("EqualMeans_12_ASE","ARMA_12_ASE","ARIMA_12_ASE","ARIMA_S12_12_ASE")],1,which.min)]
+  df_model = EqualMeans_DF - ARIS_DF
+  ss_model = EqualMeans_Results - ARIS_Results
+  ms_model = ss_model/df_model
+  ms_aris = ARIS_Results/ARIS_DF
+  F = ms_model/ms_aris
+  ARIS_p_value = pf(F,df_model,ARIS_DF,lower.tail=FALSE)
+  ARIS_p_tally = sum(ARIS_p_value[,1]<.05)
+  results[i,"ARIS_F_Tally"] = ARIS_p_tally
+  
+  if (ARIS_p_tally >= 9){
+    results[i,"ARIS_F_Conclusion"] = "Different"
+  } else if (ARIS_p_tally <= 4){
+    results[i,"ARIS_F_Conclusion"] = "Same"
+  } else {
+     results[i,"ARIS_F_Conclusion"] = "Inconclusive"
+  }
 
-formattable(resultsa, align = c("l", rep("r", NCOL(table_a) - 1)))
+results$winning_1 <- colnames(results[c("EqualMeans_1_ASE","AR_1_ASE","ARMA_1_ASE","ARI_1_ASE","ARIMA_1_ASE","ARI_S12_1_ASE","ARIMA_S12_1_ASE","RF_1_ASE","MLP_1_ASE")])[apply(results[c("EqualMeans_1_ASE","AR_1_ASE","ARMA_1_ASE","ARI_1_ASE","ARIMA_1_ASE","ARI_S12_1_ASE","ARIMA_S12_1_ASE","RF_1_ASE","MLP_1_ASE")],1,which.min)]
+
+results$winning_2 <- colnames(results[c("EqualMeans_2_ASE","AR_2_ASE","ARMA_2_ASE","ARI_2_ASE","ARIMA_2_ASE","ARI_S12_2_ASE","ARIMA_S12_2_ASE","RF_2_ASE","MLP_2_ASE")])[apply(results[c("EqualMeans_2_ASE","AR_2_ASE","ARMA_2_ASE","ARI_2_ASE","ARIMA_2_ASE","ARI_S12_2_ASE","ARIMA_S12_2_ASE","RF_2_ASE","MLP_2_ASE")],1,which.min)]
+
+results$winning_3 <- colnames(results[c("EqualMeans_3_ASE","AR_3_ASE","ARMA_3_ASE","ARI_3_ASE","ARIMA_3_ASE","ARI_S12_3_ASE","ARIMA_S12_3_ASE","RF_3_ASE","MLP_3_ASE")])[apply(results[c("EqualMeans_3_ASE","AR_3_ASE","ARMA_3_ASE","ARI_3_ASE","ARIMA_3_ASE","ARI_S12_3_ASE","ARIMA_S12_3_ASE","RF_3_ASE","MLP_3_ASE")],1,which.min)]
+
+results$winning_4 <- colnames(results[c("EqualMeans_4_ASE","AR_4_ASE","ARMA_4_ASE","ARI_4_ASE","ARIMA_4_ASE","ARI_S12_4_ASE","ARIMA_S12_4_ASE","RF_4_ASE","MLP_4_ASE")])[apply(results[c("EqualMeans_4_ASE","AR_4_ASE","ARMA_4_ASE","ARI_4_ASE","ARIMA_4_ASE","ARI_S12_4_ASE","ARIMA_S12_4_ASE","RF_4_ASE","MLP_4_ASE")],1,which.min)]
+
+results$winning_5 <- colnames(results[c("EqualMeans_5_ASE","AR_5_ASE","ARMA_5_ASE","ARI_5_ASE","ARIMA_5_ASE","ARI_S12_5_ASE","ARIMA_S12_5_ASE","RF_5_ASE","MLP_5_ASE")])[apply(results[c("EqualMeans_5_ASE","AR_5_ASE","ARMA_5_ASE","ARI_5_ASE","ARIMA_5_ASE","ARI_S12_5_ASE","ARIMA_S12_5_ASE","RF_5_ASE","MLP_5_ASE")],1,which.min)]
+
+results$winning_6 <- colnames(results[c("EqualMeans_6_ASE","AR_6_ASE","ARMA_6_ASE","ARI_6_ASE","ARIMA_6_ASE","ARI_S12_6_ASE","ARIMA_S12_6_ASE","RF_6_ASE","MLP_6_ASE")])[apply(results[c("EqualMeans_6_ASE","AR_6_ASE","ARMA_6_ASE","ARI_6_ASE","ARIMA_6_ASE","ARI_S12_6_ASE","ARIMA_S12_6_ASE","RF_6_ASE","MLP_6_ASE")],1,which.min)]
+
+results$winning_7 <- colnames(results[c("EqualMeans_7_ASE","AR_7_ASE","ARMA_7_ASE","ARI_7_ASE","ARIMA_7_ASE","ARI_S12_7_ASE","ARIMA_S12_7_ASE","RF_7_ASE","MLP_7_ASE")])[apply(results[c("EqualMeans_7_ASE","AR_7_ASE","ARMA_7_ASE","ARI_7_ASE","ARIMA_7_ASE","ARI_S12_7_ASE","ARIMA_S12_7_ASE","RF_7_ASE","MLP_7_ASE")],1,which.min)]
+
+results$winning_8 <- colnames(results[c("EqualMeans_8_ASE","AR_8_ASE","ARMA_8_ASE","ARI_8_ASE","ARIMA_8_ASE","ARI_S12_8_ASE","ARIMA_S12_8_ASE","RF_8_ASE","MLP_8_ASE")])[apply(results[c("EqualMeans_8_ASE","AR_8_ASE","ARMA_8_ASE","ARI_8_ASE","ARIMA_8_ASE","ARI_S12_8_ASE","ARIMA_S12_8_ASE","RF_8_ASE","MLP_8_ASE")],1,which.min)]
+
+results$winning_9 <- colnames(results[c("EqualMeans_9_ASE","AR_9_ASE","ARMA_9_ASE","ARI_9_ASE","ARIMA_9_ASE","ARI_S12_9_ASE","ARIMA_S12_9_ASE","RF_9_ASE","MLP_9_ASE")])[apply(results[c("EqualMeans_9_ASE","AR_9_ASE","ARMA_9_ASE","ARI_9_ASE","ARIMA_9_ASE","ARI_S12_9_ASE","ARIMA_S12_9_ASE","RF_9_ASE","MLP_9_ASE")],1,which.min)]
+
+results$winning_10 <- colnames(results[c("EqualMeans_10_ASE","AR_10_ASE","ARMA_10_ASE","ARI_10_ASE","ARIMA_10_ASE","ARI_S12_10_ASE","ARIMA_S12_10_ASE","RF_10_ASE","MLP_10_ASE")])[apply(results[c("EqualMeans_10_ASE","AR_10_ASE","ARMA_10_ASE","ARI_10_ASE","ARIMA_10_ASE","ARI_S12_10_ASE","ARIMA_S12_10_ASE","RF_10_ASE","MLP_10_ASE")],1,which.min)]
+
+results$winning_11 <- colnames(results[c("EqualMeans_11_ASE","AR_11_ASE","ARMA_11_ASE","ARI_11_ASE","ARIMA_11_ASE","ARI_S12_11_ASE","ARIMA_S12_11_ASE","RF_11_ASE","MLP_11_ASE")])[apply(results[c("EqualMeans_11_ASE","AR_11_ASE","ARMA_11_ASE","ARI_11_ASE","ARIMA_11_ASE","ARI_S12_11_ASE","ARIMA_S12_11_ASE","RF_11_ASE","MLP_11_ASE")],1,which.min)]
+
+results$winning_12 <- colnames(results[c("EqualMeans_12_ASE","AR_12_ASE","ARMA_12_ASE","ARI_12_ASE","ARIMA_12_ASE","ARI_S12_12_ASE","ARIMA_S12_12_ASE","RF_12_ASE","MLP_12_ASE")])[apply(results[c("EqualMeans_12_ASE","AR_12_ASE","ARMA_12_ASE","ARI_12_ASE","ARIMA_12_ASE","ARI_S12_12_ASE","ARIMA_S12_12_ASE","RF_12_ASE","MLP_12_ASE")],1,which.min)]
+
+formattable(results, align = c("l", rep("r", NCOL(table_a) - 1)))
 
 ```
