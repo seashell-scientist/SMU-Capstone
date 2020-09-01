@@ -1,0 +1,12 @@
+name: cap_app_v0
+title: cap_app_v0
+username:
+account: seashell-scientist
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 2530314
+bundleId: 3345959
+url: https://seashell-scientist.shinyapps.io/cap_app_v0/
+when: 1593733639.7245
+asMultiple: FALSE
+asStatic: FALSE
