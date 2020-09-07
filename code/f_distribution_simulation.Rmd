@@ -77,7 +77,7 @@ for(j in 1:10000) {
   SS_Model
   MS_Model = SS_Model/df_model
   MS_AR = AR_SSE/df_AR
-  F=MS_Model/MS_AA
+  F=MS_Model/MS_AR
   p_value = pf(F,df_model,df_AR)
   
   F_statistic_holder[j] = F
@@ -103,7 +103,7 @@ testdf = data.frame(F=test1)
 ggplot(testdf,aes(x=F)) +
   geom_density(aes(color="Simulated F Distribution")) +
   geom_line(data=cdf, aes(x=X, y=Y, color="F Distribution with df=3 and 97")) +
-  theme(panel.background = element_blank(), axis.line = element_line(colour = "black"), legend.title = element_blank()) +
+  theme(panel.background = element_blank(), axis.line = element_line(colour = "black"), legend.title = element_blank(), legend.position = c(.8,.9)) +
   ggtitle("F-Distribution Simulation on 10,000 White Noise Datasets") +
   xlab("F-Statistic") +
   ylab("Density") +
