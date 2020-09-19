@@ -1,0 +1,12 @@
+name: appv3
+title: appv3
+username:
+account: seashell-scientist
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 2816123
+bundleId: 3642057
+url: https://seashell-scientist.shinyapps.io/appv3/
+when: 1600391171.97417
+asMultiple: FALSE
+asStatic: FALSE

@@ -1,7 +1,7 @@
 library(rmdformats)
 library(tidyverse)  # data manipulaiton
 library(data.table)
-library(tswge)  # Time series package
+#library(tswge)  # Time series package
 library(tseries)  # for Dickey-Fuller test 
 library(orcutt)  # for Cochrane-Orcutt test
 library(formattable)  # for table formatting
@@ -38,24 +38,40 @@ aic_boot <- function(target_vector){
   return(head(aic_results, 1))
 }
 
-#AR #use commented sections if tswge works
-ar_ts <- function(n_ahead, target_df){
-  model1 = aic.wge(target_df$STD_Cases ,q=0,type="aic") %>% invisible()
-  if (model1$p == 0){
-    newphi = 1
-  } else {
-    newphi = model1$p
-  }
-  model1_est = est.ar.wge(target_df$STD_Cases ,p=newphi, factor = FALSE) %>% invisible()
-  forecasts = fore.aruma.wge(target_df$STD_Cases,phi = model1_est$phi, theta = 0, s = 0, d = 0,n.ahead = n_ahead,plot=FALSE) %>% invisible()
-  return(forecasts$f)
+aic_boot2 <- function(target_vector){
+  pqc <- expand.grid(0:5, 0:2)
+  aic_holder <- vector()
+  p_holder <- vector()
+  q_holder <- vector()
+  for(i in 1:length(pqc$Var1)) {
+    temp_model <- arima(target_vector, order = c(pqc[i, 1], 0, pqc[i, 2]), method = 'ML')
+    #aic_holder <- append(aic_holder, temp_model$aic) #base AIC with k = 2?
+    aic_holder[i] <- AIC(temp_model, k = log(length(target_vector)))
+    p_holder <- append(p_holder, pqc[i, 1])
+    q_holder <- append(q_holder, pqc[i, 2])}
+  aic_results <- data.frame(p = p_holder, q = q_holder, aic = aic_holder)
+  aic_results <- aic_results[order(aic_results$aic), ]
+  return(head(aic_results, 1))
 }
+
+# #AR #use commented sections if tswge works
+# ar_ts <- function(n_ahead, target_df){
+#   model1 = aic.wge(target_df$STD_Cases ,q=0,type="aic") %>% invisible()
+#   if (model1$p == 0){
+#     newphi = 1
+#   } else {
+#     newphi = model1$p
+#   }
+#   model1_est = est.ar.wge(target_df$STD_Cases ,p=newphi, factor = FALSE) %>% invisible()
+#   forecasts = fore.aruma.wge(target_df$STD_Cases,phi = model1_est$phi, theta = 0, s = 0, d = 0,n.ahead = n_ahead,plot=FALSE) %>% invisible()
+#   return(forecasts$f)
+# }
 #looks to work, but prints several polynomial coefficient output
 #ar_ts(5, target_df) 
 
 #AR model bootleg
 ar_ts_boot <- function(n_ahead, target_df){
-  aic_temp <- aic_boot(target_df$STD_Cases)
+  aic_temp <- aic_boot2(target_df$STD_Cases)
   if (aic_temp$p == 0){
     newphi = 1}
   else{newphi = aic_temp$p}
@@ -66,15 +82,15 @@ ar_ts_boot <- function(n_ahead, target_df){
 #ar_ts_boot(5, target_df) #close enough
 
 #ARMA
-arma_ts <- function(n_ahead, target_df){
-  model1 = aic.wge(target_df$STD_Cases,type="aic") %>% invisible()
-  model1_est = est.arma.wge(target_df$STD_Cases,p=model1$p,q=model1$q) %>% invisible()
-  forecasts = fore.aruma.wge(target_df$STD_Cases,phi = model1_est$phi, theta = model1_est$theta, s = 0, d = 0,n.ahead = n_ahead,plot=FALSE)
-  return(forecasts$f)} #can't hide coefficient output by assigning to var ??
-#arma_ts(8, target_df)
+# arma_ts <- function(n_ahead, target_df){
+#   model1 = aic.wge(target_df$STD_Cases,type="aic") %>% invisible()
+#   model1_est = est.arma.wge(target_df$STD_Cases,p=model1$p,q=model1$q) %>% invisible()
+#   forecasts = fore.aruma.wge(target_df$STD_Cases,phi = model1_est$phi, theta = model1_est$theta, s = 0, d = 0,n.ahead = n_ahead,plot=FALSE)
+#   return(forecasts$f)} #can't hide coefficient output by assigning to var ??
+# #arma_ts(8, target_df)
 
 arma_ts_boot <- function(n_ahead, target_df){
-  aic_temp <- aic_boot(target_df$STD_Cases)
+  aic_temp <- aic_boot2(target_df$STD_Cases)
   if (aic_temp$p == 0){
     newphi = 1}
   else newphi = aic_temp$p #error if inside curly brackets??? 
@@ -85,23 +101,23 @@ arma_ts_boot <- function(n_ahead, target_df){
 #arma_ts_boot(8, target_df)
 
 #ARI (q = 0 and d = 1)
-ari_ts <- function(n_ahead, target_df)
-{
-  temp2 = artrans.wge(target_df$STD_Cases, 1) %>% invisible() #take difference
-  model1 = aic.wge(temp2,q=0,type="aic") %>% invisible()
-  if (model1$p == 0){
-    newphi = 1
-  }else{newphi = model1$p}  
-  model1_est = est.ar.wge(temp2,p=newphi) %>% invisible() #won't work will all zero?
-  forecasts = fore.aruma.wge(target_df$STD_Cases,phi = model1_est$phi, theta = 0, s = 0, d = 1,n.ahead = n_ahead,plot=FALSE) %>% invisible()
-  return(forecasts$f)
-}
-#ari_ts(12, target_df)
+# ari_ts <- function(n_ahead, target_df)
+# {
+#   temp2 = artrans.wge(target_df$STD_Cases, 1) %>% invisible() #take difference
+#   model1 = aic.wge(temp2,q=0,type="aic") %>% invisible()
+#   if (model1$p == 0){
+#     newphi = 1
+#   }else{newphi = model1$p}  
+#   model1_est = est.ar.wge(temp2,p=newphi) %>% invisible() #won't work will all zero?
+#   forecasts = fore.aruma.wge(target_df$STD_Cases,phi = model1_est$phi, theta = 0, s = 0, d = 1,n.ahead = n_ahead,plot=FALSE) %>% invisible()
+#   return(forecasts$f)
+# }
+# #ari_ts(12, target_df)
 
 #ARI no tswge
 ari_ts_boot <- function(n_ahead, target_df){
   diff1 <- diff(target_df$STD_Cases)
-  aic_temp <- aic_boot(diff1)
+  aic_temp <- aic_boot2(diff1)
   if (aic_temp$p == 0){
     newphi = 1}
   else{newphi = aic_temp$p}
@@ -110,20 +126,20 @@ ari_ts_boot <- function(n_ahead, target_df){
 }
 #ari_ts_boot(12, target_df) #close enough
 
-#ARIMA (with d = 1?)
-arima_ts <- function(n_ahead, target_df){
-  diff1 = artrans.wge(target_df$STD_Cases, 1) %>% invisible()
-  aic_temp = aic.wge(diff1, type = 'aic') %>% invisible()
-  model_temp <- est.arma.wge(diff1, p = aic_temp$p, q = aic_temp$q) %>% invisible()
-  pred_temp <- fore.aruma.wge(target_df$STD_Cases, phi = model_temp$phi, theta = model_temp$theta, s = 0, d = 1, n.ahead = n_ahead, plot = FALSE)
-  return(pred_temp$f)
-}
-#arima_ts(4, target_df)
+# #ARIMA (with d = 1?)
+# arima_ts <- function(n_ahead, target_df){
+#   diff1 = artrans.wge(target_df$STD_Cases, 1) %>% invisible()
+#   aic_temp = aic.wge(diff1, type = 'aic') %>% invisible()
+#   model_temp <- est.arma.wge(diff1, p = aic_temp$p, q = aic_temp$q) %>% invisible()
+#   pred_temp <- fore.aruma.wge(target_df$STD_Cases, phi = model_temp$phi, theta = model_temp$theta, s = 0, d = 1, n.ahead = n_ahead, plot = FALSE)
+#   return(pred_temp$f)
+# }
+# #arima_ts(4, target_df)
 
 #no tswge
 arima_ts_boot <- function(n_ahead, target_df){
   diff1 = diff(target_df$STD_Cases)
-  aic_temp <- aic_boot(diff1)
+  aic_temp <- aic_boot2(diff1)
   if (aic_temp$p == 0){
     newphi = 1}
   else{newphi = aic_temp$p}
@@ -132,62 +148,64 @@ arima_ts_boot <- function(n_ahead, target_df){
 }
 #arima_ts_boot(4, target_df) #it's off by ~10%? 
 
-#ARI_S12 #(p, 1, 0), s = 12
-ari_s12_ts <- function(n_ahead, target_df){
-  seasonal1 <- artrans.wge(target_df$STD_Cases,phi.tr=c(rep(0,11),1))
-  aic_temp <- aic.wge(seasonal1, q = 0, type = 'aic')
-  if (aic_temp$p == 0){
-    newphi = 1
-  } else {
-    newphi = aic_temp$p
-  } 
-  model_temp <- est.ar.wge(seasonal1, p = newphi) 
-  pred_temp <- fore.aruma.wge(target_df$STD_Cases, phi = model_temp$phi, theta = 0, s = 12, d = 0, n.ahead = n_ahead, plot = FALSE)
-  
-  return(pred_temp$f)
-}
+# #ARI_S12 #(p, 1, 0), s = 12
+# ari_s12_ts <- function(n_ahead, target_df){
+#   seasonal1 <- artrans.wge(target_df$STD_Cases,phi.tr=c(rep(0,11),1))
+#   aic_temp <- aic.wge(seasonal1, q = 0, type = 'aic')
+#   if (aic_temp$p == 0){
+#     newphi = 1
+#   } else {
+#     newphi = aic_temp$p
+#   } 
+#   model_temp <- est.ar.wge(seasonal1, p = newphi) 
+#   pred_temp <- fore.aruma.wge(target_df$STD_Cases, phi = model_temp$phi, theta = 0, s = 12, d = 0, n.ahead = n_ahead, plot = FALSE)
+#   
+#   return(pred_temp$f)
+# }
 #ari_s12_ts(5, target_df)
 
 #bootleg ARI_S12
 ari_s12_ts_boot <- function(n_ahead, target_df){
   diff1 <- diff(target_df$STD_Cases)
-  aic_temp <- aic_boot(diff1)
+  aic_temp <- aic_boot2(diff1)
   if (aic_temp$p == 0){
     newphi = 1
   } else {
     newphi = aic_temp$p
   } 
   #using astsa library sarima? 
-  pred_temp <- sarima.for((target_df$STD_Cases), n_ahead, p = newphi, d = 0, q = 0, P = 0, D = 0, Q = 0, S = 12) %>% invisible
+  #pred_temp <- sarima.for((target_df$STD_Cases), n_ahead, p = newphi, d = 0, q = 0, P = 0, D = 0, Q = 0, S = 12) %>% invisible
+  pred_temp <- predict(arima0(target_df$STD_Cases, order = c(newphi, 0, 0), seasonal = c(0, 0, 12)), n.ahead = 12)
   return(pred_temp$pred) }
 #ari_s12_ts_boot(5, target_df) #+2% off from the tswge function
 
-#ARIMA_S12 #(p, 0, q), s = 12
-arima_s12_ts <- function(n_ahead, target_df){
-  aic_temp <- aic.wge(target_df$STD_Cases, type = 'aic')
-  if (aic_temp$p == 0){
-    newphi = 1
-  } else {
-    newphi = aic_temp$p
-  } 
-  model_temp <- est.arma.wge(target_df$STD_Cases, p = newphi, q = aic_temp$q) 
-  pred_temp <- fore.aruma.wge(target_df$STD_Cases, phi = model_temp$phi, theta = model_temp$theta, s = 12, d = 0, n.ahead = n_ahead, plot = FALSE)
-  
-  return(pred_temp$f)
-}
+# #ARIMA_S12 #(p, 0, q), s = 12
+# arima_s12_ts <- function(n_ahead, target_df){
+#   aic_temp <- aic.wge(target_df$STD_Cases, type = 'aic')
+#   if (aic_temp$p == 0){
+#     newphi = 1
+#   } else {
+#     newphi = aic_temp$p
+#   } 
+#   model_temp <- est.arma.wge(target_df$STD_Cases, p = newphi, q = aic_temp$q) 
+#   pred_temp <- fore.aruma.wge(target_df$STD_Cases, phi = model_temp$phi, theta = model_temp$theta, s = 12, d = 0, n.ahead = n_ahead, plot = FALSE)
+#   
+#   return(pred_temp$f)
+# }
 #arima_s12_ts(5, target_df)
 
 #bootleg ARIMA_S12
 arima_s12_ts_boot <- function(n_ahead, target_df){
   diff1 <- diff(target_df$STD_Cases)
-  aic_temp <- aic_boot(diff1)
+  aic_temp <- aic_boot2(diff1)
   if (aic_temp$p == 0){
     newphi = 1
   } else {
     newphi = aic_temp$p
   } 
   #using astsa library sarima? 
-  pred_temp <- sarima.for((target_df$STD_Cases), n_ahead, p = newphi, d = 0, q = aic_temp$q, P = 0, D = 0, Q = 0, S = 12) %>% invisible
+  #pred_temp <- sarima.for((target_df$STD_Cases), n_ahead, p = newphi, d = 0, q = aic_temp$q, P = 0, D = 0, Q = 0, S = 12) %>% invisible
+  pred_temp <- predict(arima0(target_df$STD_Cases, order = c(newphi, 0, aic_temp$q), seasonal = c(0, 0, 12)), n.ahead = 12)
   return(pred_temp$pred) }
 #arima_s12_ts_boot(5, target_df) #+2% off from the tswge function
 
