@@ -1357,20 +1357,20 @@ for(i in 1:10) {
     geom_line(aes(y=EqualMeans_Means, color="Equal Means"),size=1.5) +
     geom_line(aes(y=AR_Means, color="AR"),size=1.5) +
     geom_line(aes(y=ARMA_Means, color="ARMA"),size=1.5) +
-    geom_line(aes(y=ARI_Means, color="AR with d=1"),size=1.5) +
-    geom_line(aes(y=ARIMA_Means, color="ARIMA with d=1"),size=1.5) +
-    geom_line(aes(y=ARIS_Means, color="AR with s=12"),size=1.5) +
-    geom_line(aes(y=ARIMAS_Means, color="ARIMA with d=0, s=12"),size=1.5) +
+    geom_line(aes(y=ARI_Means, color="ARIMA, q=0, d=1"),size=1.5) +
+    geom_line(aes(y=ARIMA_Means, color="ARIMA, d=1"),size=1.5) +
+    geom_line(aes(y=ARIS_Means, color="ARIMA, q=0, s=12"),size=1.5) +
+    geom_line(aes(y=ARIMAS_Means, color="ARIMA, s=12"),size=1.5) +
     geom_line(aes(y=RF_Means, color="Random Forest"),size=1.5) +
     geom_line(aes(y=MLP_Means, color="MLP"),size=1.5) +
     scale_color_manual(values = c(
       'Equal Means' = '#004159',
       'AR' = '#65A8C4',
       'ARMA' = '#8C65D3',
-      'AR with d=1' = '#9A93EC',
-      'ARIMA with d=1' = '#0052A5',
-      'AR with s=12' = '#413BF7',
-      'ARIMA with d=0, s=12' = '#00ADCE',
+      'ARIMA, q=0, d=1' = '#9A93EC',
+      'ARIMA, d=1' = '#0052A5',
+      'ARIMA, q=0, s=12' = '#413BF7',
+      'ARIMA, s=12' = '#00ADCE',
       'Random Forest' = '#59DBF1',
       'MLP' = '#00C590'
     )) +
