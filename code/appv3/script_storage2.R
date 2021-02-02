@@ -1,5 +1,5 @@
 library(rmdformats)
-library(tidyverse)  # data manipulaiton
+library(tidyverse)  # data manipulation
 library(data.table)
 #library(tswge)  # Time series package
 library(tseries)  # for Dickey-Fuller test 
@@ -14,9 +14,10 @@ library(changepoint)
 library(date)
 library(R.devices)
 
+### A series of functions used in a time series analysis dashboard capstone project for MSDS at SMU ###
 
 #Equal Means
-#accept df object and return forcasts 1:12
+#accept df object and return forecasts 1:12
 em_ts <- function(n_ahead, target_df){
   return(rep((mean(target_df$STD_Cases)),  n_ahead))}
 

@@ -189,6 +189,7 @@ df_17_19$date = date.mmddyy(mdy.date(match(substr(df_17_19$Month, 1, 3),month.ab
 df_15_16$date = date.mmddyy(mdy.date(match(substr(df_15_16$Month, 4, 6),month.abb),01,df_15_16$Year),sep="/")
 df_13_14$date = date.mmddyy(mdy.date(match(substr(df_13_14$Month, 1, 3),month.abb),01,df_13_14$Year),sep="/")
 
+#df <- df_13_14
 df <- rbind(df_17_19,df_15_16,df_13_14)
 
 
@@ -232,67 +233,56 @@ ui <- fluidPage(
   # Sidebar with a slider input for number of bins 
   sidebarLayout(
     sidebarPanel(
-      h3('15ish min runtime'),
+      h3('Select Product Name'),
+      selectInput(inputId = 'pname', 'Product', sorted_total_cases$name), 
       actionButton("b1", "Submit"),
-      selectInput(inputId = 'pname', 'Product', sorted_total_cases), 
-      textOutput('text1')
+      width = 4
     ),
     
     # Show a plot of the generated distribution
     mainPanel(
-      #textOutput('text1'),
-      plotOutput('plot1') 
-      #plotOutput('prog_plot', width = "300px", height = "300px"),
-    )
+      plotOutput('plot1'), 
+      DT::dataTableOutput('table1'), 
+      textOutput('runtime'), 
+      #DT::dataTableOutput('ztable') #diagnostics
+      )
   )
 )
 
 # Define server logic required to draw a histogram
 server <- function(input, output) {
+  rv <- reactiveValues() #assign start and end times to this global-ish var
   
   output$text1 <- renderText({
-    paste('Selected Product: ', input$pname)
+    paste('Displaying Selected Product: ', input$pname)
   })
   
-  text_reactive <- eventReactive(input$b1, {
-    input$pname
+  filtered_reactive <- eventReactive(input$b1, { #assign filtered df z to filtered_reactive()
+    rv$startTime <- Sys.time()
+    product_name <- input$pname
+    combolist <- combinations[which(combinations$Product == product_name), ]
+    z <- df[which(df$Product == product_name), ]
+    z$date <- as.Date(z$date, '%m/%d/%Y')
+    z
   })
   
-  output$plot1 <- renderPlot({
-    
-    #product_name <- input$pname
-    product_name <- text_reactive()
-    ####progress bar block start###
-    #dat <- data.frame(x = numeric(0), y = numeric(0))
-    # withProgress(message = 'Making plot', value = 0, {
-    #   # Number of times we'll go through the loop
-    #   n <- 10
-    #   
-    #   for (i in 1:n) {
-    #     # Each time through the loop, add another row of data. This is
-    #     # a stand-in for a long-running computation.
-    #     dat <- rbind(dat, data.frame(x = rnorm(1), y = rnorm(1)))
-    #     
-    #     # Increment the progress bar, and update the detail text.
-    #     incProgress(1/n, detail = paste("Doing part", i))
-    #     
-    #     # Pause for 0.1 seconds to simulate a long computation.
-    #     Sys.sleep(0.1)
-    #   }
-    # })
-    # ###progress bar block end####
+  # output$ztable <- DT::renderDataTable({
+  #   rv$endTime <- Sys.time()
+  #   filtered_reactive()
+  # })
+  
+  prediction_reactive <- eventReactive(input$b1, {
+    product_name <- input$pname
+
     withProgress(message = 'Making plot', value = 0, {
       combolist <- combinations[which(combinations$Product == product_name), ]
-      z <- df[which(df$Product == product_name), ]
-      z$date <- as.Date(z$date, '%m/%d/%Y')
+      z <- filtered_reactive() #stand in for z
       proto_df_list = list()
       for(i in seq(1, length(combolist$Customer_ID), 1)){
         #print(combolist$Customer_ID[i])
         y = z[which(z$Customer_ID == combolist$Customer_ID[i]), ]
         proto_df_list[[i]] <- y
       }
-      #proto_df_list[[1]] #ok so dt render data table will show a df
-      
       #date to line up each prod/cust combo
       full_date_range = seq(from = min(as.Date(df$date, '%m/%d/%Y')), to = max(as.Date(df$date, '%m/%d/%Y')), by = 'month')
       #get full range of dates to 'expand' and reveal missing data
@@ -302,9 +292,7 @@ server <- function(input, output) {
         mtest <- data.frame(left_join(df_template, proto_df_list[[f]], by = 'date'))
         mtest[is.na(mtest)] <- 0
         df_list[[f]] <- mtest
-      }       #This makes df's date-contigous
-      #df_list[[1]] #also shows
-      
+      }
       #gen ase holders and forecast holders
       modelnames = c('EqualMeans', 'AR', 'ARMA', 'ARI', 'ARIMA', 'ARI_S12', 'ARIMA_S12', 'RF', 'MLP')
       modelnames2 <- c('Actual', paste(modelnames, '_ASE'), paste(modelnames, '_F'))
@@ -317,9 +305,10 @@ server <- function(input, output) {
       #store future predictions and winning model its based on per cust ID
       iter_holder <- data.frame(matrix(data = 0, ncol = length(df_list), nrow = 12+2)) #12 preds + 2 ids
       ###END PRODUCT SELECTION SECTOR###
-      
+
       ###FORECASTING SECTION BOOT###
       for(s in 1:length(df_list)){ #target assignment, cycle through df_list per custID
+      #for(s in 1:1){ #testing truncation
         incProgress(1/s, detail = paste("Doing part", s))
         target_df = df_list[[s]]
         target_df$date <- as.Date(target_df$date, '%m/%d/%Y') #Date fix, char form messes with ordering
@@ -352,7 +341,7 @@ server <- function(input, output) {
           else{break()
             #print('unrecognized model name')
           }}
-        
+
         mean_roll_ase_holder = c()
         c = 1
         for(i in names(r_ase)){
@@ -384,8 +373,8 @@ server <- function(input, output) {
         #sequence of dates n spaces out from the last predictions of the target df
         #includes starting date, but cut off for storage
       }
-      
-      
+
+
       #aggregate forecasts
       #cust_results <- iter_holder %>% t() %>% as.data.frame()
       cust_results = as.data.frame(t(iter_holder))
@@ -394,34 +383,59 @@ server <- function(input, output) {
       for(r in 1:12){
         final_results[r] <- sum(as.numeric(cust_results[ ,(r+2)])) #no rounding
       }
-      #aggregate all actual cases by date
-      dlist <- sort(unique(z$date))
-      clist = c()
-      i = 1
-      for(d in dlist){
-        clist[i] <- sum(z[z$date == d, ]$STD_Cases)
-        i = i + 1}
-      actuals = data.frame(date = dlist, cases = clist)
-      actuals$id = rep('actual', length(actuals$date))
       #add prediction/date frame to end and add category for plotting
       predictions = data.frame(date = pred_dates, cases = final_results)
-      predictions$id = rep('prediction', length(predictions$date))
-      
-      #final viz output - actual data + simple prediction line
-      final_data = rbind(actuals, predictions)
-      names(final_data) = c('date', 'cases', 'id')
-      #will final_data even show up as DT?
-      #
-      # vplot <- function(fdf){
-      v1 = ggplot(final_data, aes(x = date, y = cases, color = id), environment = environment()) +
-        geom_line() +
-        ggtitle(paste('12 Month Forecast:', product_name)) + xlab('Date') + ylab('Cases') +
-        labs(color = '')
-      #}
-      plot(v1)
-      #final_data %>% as.data.table()
     }) #end with reactive bar thing
-  }) #end output1
+    #rv$predictions <- predictions#saves dataframe predictions as prediction_reactive() to call elsewhere
+    rv$endTime <- Sys.time() #note, order is important, the last item is saved as the reactive item (i think) 
+    predictions
+  })
+
+  output$table1 = DT::renderDataTable({
+    prediction_reactive() 
+    #rv$predictions
+   }, options = list(pageLength = 15, info = FALSE,
+                      lengthMenu = list(c(3, 6, -1), c("3", '6', "All"))), 
+   class = 'cell-border stripe')
+
+  output$plot1 <- renderPlot({
+    predictions <- prediction_reactive()
+    predictions$id = rep('prediction', length(predictions$date))
+
+    #aggregate all actual cases by date
+    z = filtered_reactive()
+    dlist = sort(unique(z$date))
+    clist = c()
+    i = 1
+    for(d in dlist){
+      clist[i] <- sum(z[z$date == d, ]$STD_Cases)
+      i = i + 1}
+    actuals = data.frame(date = dlist, cases = clist)
+    actuals$id = rep('actual', length(actuals$date))
+    #final viz output - actual data + simple prediction line
+    final_data = rbind(actuals, predictions) #hook to reactive prediction bit here
+    names(final_data) = c('date', 'cases', 'id')
+
+    #will final_data even show up as DT?
+    v1 = ggplot(final_data, aes(x = date, y = cases, color = id), environment = environment()) +
+      geom_line() +
+      ggtitle(paste('12 Month Forecast:', input$pname)) + xlab('Date') + ylab('Cases') +
+      labs(color = '') +
+      #theme_minimal() +
+      theme_light()+
+      theme(panel.grid.minor = element_line(color = 'white'),
+            panel.grid.major = element_line(color = 'white'),
+            axis.ticks = element_line(size = 1, color="black"), 
+            text = element_text(size=20))
+    #}
+    plot(v1)
+    #final_data %>% as.data.table()
+    }) #end output plot1
+  
+  output$runtime <- renderText({
+    print(rv$endTime - rv$startTime)
+    #typeof(rv$startTime)
+  })
   
 } #end server
 
